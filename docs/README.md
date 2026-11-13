@@ -6,12 +6,14 @@
 
 | 部分 | 承担 | 依赖 |
 |---|---|---|
-| Directory | 文件与目录的领域格式、导入、物化与文件执行 | croon 的 Value、Bundle 与交付契约 |
+| Directory | 导入、物化与文件执行；Tree 的领域格式由 croon 定义 | croon 的 Value、Bundle 与交付契约；Tree |
 | Model | 模型服务的 Port 形状与宿主适配边界 | croon 的 Value、Reference |
 | Library | 预置 Definition、认知模式、工具目录、组织做法与 Application | croon、croon-lang0、Directory、Model |
 | Application | 按场景装好的 Definition、Charter、接线与提示词 | Library、Directory、Model |
 
 依赖方向为：croon 是 Kernel 基座，croon-lang0 提供第一种 Language，croon-app 组合 Kernel、Language 与模型和文件执行服务。三个仓库并排放置，path 依赖方向为 croon ← croon-lang0 ← croon-app。
+
+本仓库只有一个 crate：`crates/execution`。目录与文件执行的代码在它里面，不再单独成 crate。
 
 ## 地图
 

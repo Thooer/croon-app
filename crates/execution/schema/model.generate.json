@@ -1,0 +1,264 @@
+{
+  "description": "请求一次模型生成；提供者和模型由这份 Reference 决定",
+  "in": {
+    "type": "object",
+    "properties": {
+      "system": {
+        "type": "string"
+      },
+      "messages": {
+        "type": "array",
+        "items": {
+          "$ref": "#/$defs/message"
+        }
+      },
+      "tools": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": "string"
+            },
+            "description": {
+              "type": "string"
+            },
+            "input": {
+              "type": "object"
+            }
+          },
+          "required": [
+            "name",
+            "description",
+            "input"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "max_output_tokens": {
+        "type": "integer"
+      },
+      "timeout": {
+        "type": "integer"
+      }
+    },
+    "required": [
+      "system",
+      "messages",
+      "tools"
+    ],
+    "additionalProperties": false,
+    "$defs": {
+      "call": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "input": {}
+        },
+        "required": [
+          "id",
+          "name",
+          "input"
+        ],
+        "additionalProperties": false
+      },
+      "message": {
+        "anyOf": [
+          {
+            "type": "object",
+            "properties": {
+              "role": {
+                "enum": [
+                  "user"
+                ]
+              },
+              "text": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "role",
+              "text"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "role": {
+                "enum": [
+                  "assistant"
+                ]
+              },
+              "text": {
+                "type": "string"
+              },
+              "reasoning": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "calls": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/$defs/call"
+                }
+              }
+            },
+            "required": [
+              "role",
+              "text",
+              "reasoning",
+              "calls"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "role": {
+                "enum": [
+                  "tool"
+                ]
+              },
+              "results": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "name": {
+                      "type": "string"
+                    },
+                    "output": {},
+                    "is_error": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "name",
+                    "output",
+                    "is_error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            },
+            "required": [
+              "role",
+              "results"
+            ],
+            "additionalProperties": false
+          }
+        ]
+      }
+    }
+  },
+  "attach": {
+    "additionalProperties": false
+  },
+  "out": {
+    "value": {
+      "type": "object",
+      "properties": {
+        "text": {
+          "type": "string"
+        },
+        "reasoning": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "calls": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              },
+              "input": {}
+            },
+            "required": [
+              "id",
+              "name",
+              "input"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "finish": {
+          "enum": [
+            "stop",
+            "length",
+            "tool_calls",
+            "content_filter",
+            "other"
+          ]
+        },
+        "usage": {
+          "type": "object",
+          "properties": {
+            "input": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "output": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "required": [
+            "input",
+            "output"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "text",
+        "reasoning",
+        "calls",
+        "finish",
+        "usage"
+      ],
+      "additionalProperties": false
+    },
+    "attach": {
+      "additionalProperties": false
+    }
+  }
+}

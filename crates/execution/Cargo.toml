@@ -7,8 +7,13 @@ rust-version.workspace = true
 publish.workspace = true
 
 [dependencies]
-croon-eval = { path = "../../../croon/crates/eval" }
-kernel = { path = "../../../croon/crates/kernel", default-features = false }
-directory = { path = "../directory" }
+croon-eval.workspace = true
+croon-port.workspace = true
+croon-tree.workspace = true
 serde_json.workspace = true
-libc = { version = "=0.2.191", default-features = false }
+libc.workspace = true
+
+[dev-dependencies]
+lang0.workspace = true
+scenarios.workspace = true
+kernel.workspace = true

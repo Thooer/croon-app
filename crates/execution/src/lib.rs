@@ -2,18 +2,23 @@
 //! 参考：docs/Directory/README.md（文件执行、隔离与恢复）。
 
 mod collect;
-mod filesystem;
 mod fd;
+mod filesystem;
 mod launch;
 mod process;
 mod state;
 #[cfg(test)]
 mod tests;
 pub use filesystem::{Limits, import, materialize, read};
+
+mod blocks;
+pub fn schema(name: &str) -> serde_json::Value {
+    blocks::json(name)
+}
 use process::{bounded, drain};
 
-use kernel::host::{Call, Channel, Execution, HostDone, HostError, Port};
-use kernel::store::Content;
+use croon_port::host::{Call, Channel, Execution, HostDone, HostError, Port};
+use croon_port::store::Content;
 use serde_json::{Value as Json, json};
 use std::cell::RefCell;
 use std::collections::BTreeMap;
@@ -71,7 +76,7 @@ struct Request {
 }
 impl Request {
     fn parse(value: &Json) -> Result<Self, HostError> {
-        kernel::schema::validate(&directory::schema("directory.exec")["in"], value)
+        croon_eval::schema::validate(&crate::schema("directory.exec")["in"], value)
             .map_err(|e| host(format!("{e:?}")))?;
         let argv: Vec<String> = value["argv"]
             .as_array()
@@ -92,7 +97,7 @@ impl Request {
             .iter()
             .map(|(k, v)| (k.clone(), v.as_str().unwrap().to_owned()))
             .collect();
-        if mounts.iter().any(|(name, _)| !directory::valid_name(name)) {
+        if mounts.iter().any(|(name, _)| !croon_tree::valid_name(name)) {
             return Err(host("invalid mount name"));
         }
         Ok(Self {

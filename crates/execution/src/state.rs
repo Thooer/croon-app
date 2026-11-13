@@ -39,7 +39,7 @@ impl Docker {
             return Err(host("state is symlink"));
         }
         fs::set_permissions(&config.state, fs::Permissions::from_mode(0o700)).map_err(host)?;
-        let digest = kernel::value::ValueId::of_bytes(config.identity.as_bytes());
+        let digest = croon_eval::value::ValueId::of_bytes(config.identity.as_bytes());
         let prefix = format!("croon-exec-{}", digest.hex());
         let provider = Self {
             config: Rc::new(config),
@@ -65,7 +65,7 @@ impl Docker {
         format!(
             "{}-{}",
             self.prefix,
-            kernel::value::ValueId::of_bytes(attempt.as_bytes()).hex()
+            croon_eval::value::ValueId::of_bytes(attempt.as_bytes()).hex()
         )
     }
     pub(super) fn path(&self, attempt: &str) -> PathBuf {

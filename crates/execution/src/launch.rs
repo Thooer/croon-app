@@ -25,7 +25,7 @@ impl Docker {
         for (name, id) in request.mounts {
             let mount = path.join(format!(
                 "mount-{}",
-                kernel::value::ValueId::of_bytes(name.as_bytes()).hex()
+                croon_eval::value::ValueId::of_bytes(name.as_bytes()).hex()
             ));
             fs::create_dir(&mount).map_err(host)?;
             materialize(&call.content, &id, &mount, limits)?;

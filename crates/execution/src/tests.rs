@@ -2,7 +2,7 @@
 //! 参考：docs/Directory/README.md（文件执行、隔离与恢复）。
 
 use super::*;
-use kernel::store::{Budgets, ContentStore};
+use croon_port::store::{Budgets, ContentStore};
 use std::sync::atomic::{AtomicU64, Ordering};
 static NEXT: AtomicU64 = AtomicU64::new(0);
 
@@ -160,7 +160,7 @@ fn docker_isolates_inputs_and_returns_nonzero_stable_artifacts() {
         "tree={tree:?} outcome={}",
         done.outcome
     );
-    assert!(matches!(tree["link"], directory::Entry::Link { .. }));
+    assert!(matches!(tree["link"], croon_tree::Entry::Link { .. }));
     assert_ne!(result, f.snapshot);
     assert!(read(&f.content, &f.snapshot).unwrap().len() == 1);
     f.docker.retire("nonzero").unwrap();

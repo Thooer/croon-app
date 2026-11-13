@@ -12,7 +12,7 @@ croon-app 是建立在 croon 与 croon-lang0 之上的完整应用：模型适�
 | AGENTS.md | 本文 |
 | docs/README.md | 文档入口：部分、依赖方向、地图、名词表 |
 | docs/Plan.md | 范围、生命周期、阶段与验收；全文是打算 |
-| docs/Directory/README.md | Directory 的导入、物化与文件执行服务 |
+| docs/Directory/README.md | Directory 的文件执行服务 |
 | docs/Model/README.md | 模型服务 Port 形状 |
 | docs/Library/README.md | Library 总览：原则、地图与生成模块 |
 | docs/Library/Runtime.md | 运行环境、工具调用、交办 |
@@ -69,7 +69,7 @@ croon-app 是建立在 croon 与 croon-lang0 之上的完整应用：模型适�
 - 在非耦合的位置拆分：改它时必须一起改的放一起。
 - 每部分先写成一个文件。在非耦合的位置拆分；文件夹里的 README.md 承担该部分的核心。
 - 结构等内容到了再建。
-- 正文不插链接；需要定位设计出处时，末尾标「参考：」并列本仓库内相对路径。跨仓库引用写 `croon:docs/Kernel/Reference.md「节名」` 或 `croon-lang0:docs/README.md「节名」`。
+- 正文不插链接；需要定位设计出处时，末尾标「参考：」并列本仓库内相对路径。跨仓库引用写 `croon:docs/Kernel/Port.md「Kernel 的 Port」` 或 `croon-lang0:docs/README.md「模块」`。
 - 引用单向：设计之间按 docs/README.md 里的依赖方向引用；research/ 可以引用设计；设计不引用 research/。
 
 ### 出处与验证
@@ -86,4 +86,4 @@ croon-app 是建立在 croon 与 croon-lang0 之上的完整应用：模型适�
 
 - 上游：croon（croon-eval、croon-port、croon-tree；Kernel 与 scenarios 只在测试里用）与 croon-lang0。
 - 下游：无。
-- 本仓库拥有：Directory 的导入、物化与执行；Model；Library 与 `library.*` 生成模块；Application。
+- 本仓库拥有：Model、文件执行、Library 与 `library.*` 生成模块、Application。`library/kernel.py`、`library/model.py`、`library/directory.py` 由 `cargo run -p execution --example generate_library -- library` 产生，不进 Git。

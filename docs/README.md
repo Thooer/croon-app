@@ -39,11 +39,11 @@
 | Tool | 工具 | 中 | |
 | Middleware | 中间层 | 英 | 同一 body 内的函数包装，见 Library/Runtime.md |
 | Petname | 本地名字 | 英 | 只对自己有意义的短名字 |
-| Custodian | 保管者 | 中 | 见 Kernel/Reference.md 的「持有意味着什么」 |
+| Custodian | 保管者 | 中 | 见 croon:docs/Kernel/Reference.md「持有意味着什么」 |
 | Registrar | 登记者 | 中 | |
 | Application | 应用 | 英 | |
 | W0 | 根的第一个 Agent | 英 | |
-| Directory | 目录 | 英 | 文件与目录的领域格式、导入与物化 |
+| Directory | 目录 | 英 | 文件执行服务 |
 | Model | 模型 | 英 | 宿主模型服务的 Port 形状 |
 
 参考：Library/README.md；Directory/README.md；Model/README.md；Plan.md。

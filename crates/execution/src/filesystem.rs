@@ -3,8 +3,8 @@
 
 use crate::fd as fs;
 use croon_eval::host::HostError;
-use directory::{Entry, error, required, valid_name, Tree};
-use kernel::store::Content;
+use croon_port::store::Content;
+use croon_tree::{Entry, Tree, error, required, valid_name};
 use serde_json::{Value as Json, json};
 use std::fs::File;
 use std::os::unix::fs::PermissionsExt;
@@ -13,7 +13,7 @@ use std::path::Path;
 /// 按 ID 读一个目录 Bundle 并校验它的 Tree。读取范围由调用者的 `Content` 决定。
 pub fn read(content: &Content, id: &str) -> Result<Tree, HostError> {
     let bundle = required(content.bundle(id)?, id)?;
-    directory::validate(
+    croon_tree::validate(
         &bundle,
         &required(content.json(&bundle.content)?, &bundle.content)?,
     )

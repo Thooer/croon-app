@@ -4,24 +4,7 @@
 
 ## Tree
 
-Tree 是目录 Bundle：内容为名字到条目的映射，直接依赖恰好覆盖 file、dir 指向的 Bundle，排序去重。文件 Bundle 只封装字节，依赖为空；目录递归遵循相同规则。link 是目标字符串，不引入依赖。
-
-```json directory.tree
-{
-  "type":"object",
-  "description":"名字非空，不含 / 或 NUL，不是 . 或 ..",
-  "additionalProperties":{"$ref":"#/$defs/entry"},
-  "$defs":{
-    "entry":{
-      "anyOf":[
-        {"type":"object","properties":{"file":{"type":"string","description":"字节 Bundle ID"},"x":{"type":"boolean"}},"required":["file","x"],"additionalProperties":false},
-        {"type":"object","properties":{"dir":{"type":"string","description":"目录 Bundle ID"}},"required":["dir"],"additionalProperties":false},
-        {"type":"object","properties":{"link":{"type":"string"}},"required":["link"],"additionalProperties":false}
-      ]
-    }
-  }
-}
-```
+Tree 的目录内容形状见 croon:docs/Tree.md「Tree」。本部分只定义使用 Tree 的导入、物化与文件执行服务。
 
 导入使用 lstat，符号链接保存目标而不跟随；只接受普通文件、目录、符号链接和可执行位。物化拒绝路径穿越，不沿先前创建的链接写文件；同一目录依赖范围的校验独立于宿主文件系统。
 
@@ -85,5 +68,3 @@ Linux 导入与物化以不跟随链接的目录 FD 为锚，用 openat(O_NOFOLL
 start 的任一步失败也封印原 attempt 并尝试 retire；若 Docker CLI 已不可用，保留接受目录和封印，恢复后继续清理。retire 先持久封印，回收旧采集器与任务容器，并分别建立、核对同名 tombstone 容器。tombstone 没有输入或挂载，root 只读、network none、cap-drop ALL，入口为 /bin/true。它占住名字，使已在途的旧 create 不能在确认退役后放出写者；后续 start、exec、收集与删除使用已固定的实际容器 ID。若间隙被旧 create 抢先占名，retire 报故障，下一次继续回收，不能确认成功。retire 成功后删除输入、archive、解析产物和 stdin，只保留封印与锁。封印与 tombstone 长期保留，每个 attempt 占一份小宿主状态与两份容器元数据；在 Docker 请求无法证明不会迟到的前提下，删除它会失去退役保证。
 
 案例：A 从 R0 启动两次执行，产生 R1、R2；两者可以同时存在，A 决定采用或合并。暂停其中一个 Instance 只让该次执行有限收尾，不会把产物设成别方的当前状态。难改的点是目录依赖准确性、链接隔离和 retire 的物理保证。
-
-参考：（移至仓库 croon/croon-lang0）。

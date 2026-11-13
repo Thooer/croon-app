@@ -4,7 +4,7 @@
 
 ## 内容
 
-- `crates/directory/`：Tree、目录导入、物化和文件执行的领域形状。
+- `crates/directory/`：目录导入、物化和文件执行的领域形状；Tree 的权威在 croon。
 - `crates/execution/`：Linux/Docker 隔离执行、产物收集和恢复。
 - `library/`：ReAct、文件工具、交办和预置 Application 使用的 Lang0 模块。
 - `docs/Directory/`：目录与文件执行。
@@ -20,4 +20,4 @@
 
 本仓库是独立 Cargo workspace。构建与测试只使用本仓库的 crates 和依赖。Library 中的模块与生成文件由本仓库的构建流程产生，不依赖另一个仓库的源码目录。
 
-文档入口是 `docs/README.md`。具体领域从 `docs/Directory/README.md`、`docs/Model/README.md` 和 `docs/Library/README.md` 进入。
+文档入口是 `docs/README.md`。具体领域从 `docs/Directory/README.md`、`docs/Model/README.md` 和 `docs/Library/README.md` 进入。依赖并排放置的 croon 与 croon-lang0 仓库（path 依赖），目录布局为 `../croon`、`../croon-lang0`。

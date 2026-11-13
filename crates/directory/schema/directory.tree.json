@@ -1,0 +1,55 @@
+{
+  "type": "object",
+  "description": "名字非空，不含 / 或 NUL，不是 . 或 ..",
+  "additionalProperties": {
+    "$ref": "#/$defs/entry"
+  },
+  "$defs": {
+    "entry": {
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "file": {
+              "type": "string",
+              "description": "字节 Bundle ID"
+            },
+            "x": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "file",
+            "x"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "dir": {
+              "type": "string",
+              "description": "目录 Bundle ID"
+            }
+          },
+          "required": [
+            "dir"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "link": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "link"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    }
+  }
+}

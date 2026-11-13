@@ -1,0 +1,78 @@
+{
+  "description": "从显式快照建立独立环境，运行命令，交付稳定产物；不自动采用结果",
+  "in": {
+    "type": "object",
+    "properties": {
+      "snapshot": {
+        "type": "string"
+      },
+      "mounts": {
+        "type": "object",
+        "additionalProperties": {
+          "type": "string"
+        }
+      },
+      "argv": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      },
+      "stdin": {
+        "type": "string"
+      },
+      "timeout": {
+        "type": "integer",
+        "description": "秒，正数，至多 600"
+      }
+    },
+    "required": [
+      "snapshot",
+      "mounts",
+      "argv",
+      "stdin",
+      "timeout"
+    ],
+    "additionalProperties": false
+  },
+  "attach": {
+    "additionalProperties": false
+  },
+  "out": {
+    "value": {
+      "type": "object",
+      "properties": {
+        "exit": {
+          "type": "integer"
+        },
+        "stdout": {
+          "type": "string"
+        },
+        "stderr": {
+          "type": "string"
+        },
+        "timed_out": {
+          "type": "boolean"
+        },
+        "truncated": {
+          "type": "boolean"
+        },
+        "snapshot": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "exit",
+        "stdout",
+        "stderr",
+        "timed_out",
+        "truncated",
+        "snapshot"
+      ],
+      "additionalProperties": false
+    },
+    "attach": {
+      "additionalProperties": false
+    }
+  }
+}

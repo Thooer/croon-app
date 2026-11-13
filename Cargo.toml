@@ -1,0 +1,19 @@
+[workspace]
+resolver = "3"
+members = [
+    "crates/directory",
+    "crates/execution",
+]
+
+[workspace.package]
+version = "0.0.0"
+edition = "2024"
+rust-version = "1.99"
+publish = false
+
+[workspace.dependencies]
+serde_json = { version = "1", default-features = false, features = ["std", "float_roundtrip"] }
+libc = { version = "=0.2.191", default-features = false }
+
+[profile.release]
+overflow-checks = true

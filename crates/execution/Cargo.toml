@@ -1,0 +1,14 @@
+[package]
+name = "execution"
+description = "Docker 中的隔离文件执行提供者"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[dependencies]
+croon-eval = { path = "../../../croon/crates/eval" }
+kernel = { path = "../../../croon/crates/kernel", default-features = false }
+directory = { path = "../directory" }
+serde_json.workspace = true
+libc = { version = "=0.2.191", default-features = false }

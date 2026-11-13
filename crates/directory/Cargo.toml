@@ -1,0 +1,11 @@
+[package]
+name = "directory"
+description = "不可变目录 Bundle 与安全文件导入、物化"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[dependencies]
+croon-eval = { path = "../../../croon/crates/eval" }
+serde_json.workspace = true

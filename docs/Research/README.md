@@ -2,13 +2,17 @@
 
 这里收 App 自己需要的研究线索，不是应用设计的权威。Library、Model、Directory、Execution 和 Application 的决定直接写在各自正文中。
 
-## 分诊
+## 收什么
 
-- `前提.md` 中关于上下文、模型行为、目标漂移、独立检验、停止、结构化写法和模型协作的内容归这里。
-- `提示词工程.md` 全部归这里。
-- `借鉴组织.md` 中关于 Agent 组织、委派、验证、监督、熔断、上下文交接和多 Agent 失效的内容归这里。
-- `DSH.md` 中关于模型可见记录、可逆副作用、运行时依赖、资源失控、流式输出和 Agent harness 的内容归这里。
-- `先例.md` 中关于 ReAct、Agent framework、Library、MCP、A2A、模型服务、目录执行和应用组合的内容归这里。
+- `先例.md`：Library、Agent 框架与系统边界协议的先例。
+- `借鉴组织.md`：组织规律能否迁移、群体与委派、组合特有的失效。
+- `前提.md`：截断与续写、反馈与修正。
+- `提示词工程.md`：认知模式里的措辞与表达。
+
+## 不收
+
+- 支持 Kernel 的保证、放置与制度对照的线索，归 croon 的 `docs/Research/`。
+- 关于 Surface、求值器、确定性与隔离的，归 croon-lang0 的 `docs/Research/`。
 
 ## 草稿
 
@@ -16,4 +20,6 @@
 
 ## 规则
 
-研究材料只能提供线索。App 文档直接写 App 自己的决定，不通过研究材料定义 Kernel 或 Language 的语义。
+研究材料只保存观察、出处和推断；正文是设计的权威，研究不复述规则。
+
+参考：docs/Library/README.md（地图）；docs/Draft.md。

@@ -27,7 +27,7 @@
 | Tree 的目录内容形状是什么 | croon:docs/Tree.md「Tree」 |
 | 模型服务的 Port 形状与调用边界 | Model/README.md |
 | Library 怎样运行 ReAct、工具与交办 | Library/Runtime.md |
-| 怎样组织多个 Cognizer、交接与历史 | Library/Organization.md |
+| 怎样组织多个主体、交接与历史 | Library/Organization.md |
 | 预置 Charter 与 Application 收什么 | Library/Presets.md |
 | 应用侧的证据、先例与研究线索 | Research/；内容按待核验读 |
 | 用户还没成形的想法 | Draft.md；不是设计，AI 只在用户让读时读 |

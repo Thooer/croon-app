@@ -31,7 +31,7 @@ croon-app 拥有模型适配、Directory 与 Docker 文件执行、Library 与 A
 - **Directory 与 Execution**：Linux 导入、物化、Docker 文件执行、产物收集与恢复边界见 Directory/README.md；本仓库的提供者测试按该边界验收。
 - **Library 与 W0**：ReAct、工具、交办、Middleware、组织与预置 Application 的组合见 Library/；W0 是根的第一个 Agent，最小闭环见 Library/Presets.md。
 
-**尚未落地**：Charter 的构造与实例化尚未实现，当前构造一律拒绝。持久终止意图与嵌套 Collective 的同次收尾已写进设计，真实终止途中崩溃仍待验证；当前执行 attempt 的退役和普通收取恢复已验证。
+**尚未落地**：Charter 的构造查了四条纯结构的，见 croon:docs/Kernel/Definition/README.md「检查」；「写死的 Definition 满足它的 Seat」要读闭包，还没查；实例化仍一律拒绝。持久终止意图与嵌套 Collective 的同次收尾已写进设计，真实终止途中崩溃仍待验证；当前执行 attempt 的退役和普通收取恢复已验证。
 
 ## 下一步
 

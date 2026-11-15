@@ -21,27 +21,24 @@ croon-app 拥有模型适配、Directory 与 Docker 文件执行、Library 与 A
 
 ## 现在
 
-生命周期的 0。首刀与第二刀已完成，运行闭环还差真实的外部执行。已完成：
+生命周期的 0。运行闭环的一次性版本已经接上真的外部执行：根经宿主装起系统，交一个任务给 W0，取回结果写进新目录；中断后同一个 Kernel 目录重跑即恢复。已完成：
 
-- **首刀**：旧的 Tree/记录形状已删除；Approval、Binding 与 Kernel Bundle 测试验证新的交付、构造事实、读取范围与恢复边界。场景脚手架的完整迁移仍在本次提交验收中。
-- **第二刀**：Lang0 顺序求值、CPython 差分、WASM 桥与新的显式交付场景通过；Delegate 在兼容顺序、提交点和每个 provider Atom 在途崩溃下 Journal 相同。Lang0 与 App 的集成验证在对应仓库维护。
-- **内核分离**：内容与执行已拆开。Bundle 的依赖与交付资格、构造事实、显式输入与执行 attempt 已接入；Approval、Binding 与 Kernel Bundle 测试验证核心边界。真实 Docker 文件执行通过隔离输入、非零产物、超时回收与未收取 attempt 退役测试。多 Entry 认证和真实模型仍待后续场景。
-- **Language 装载**：Lang0 的 body、模块目录与构造读取已改为完整 Definition Bundle 的固定闭包；WASM 桥仍按受控 Read 与宿主预算运行。
-- **模型与客户端**：模型服务的确定形状见 Model/README.md；真实模型适配、经 socket 的 root entry 与完整客户端仍待后续场景。
-- **Directory 与 Execution**：Linux 导入、物化、Docker 文件执行、产物收集与恢复边界见 Directory/README.md；本仓库的提供者测试按该边界验收。
-- **Library 与 W0**：ReAct、工具、交办、Middleware、组织与预置 Application 的组合见 Library/；W0 是根的第一个 Agent，最小闭环见 Library/Presets.md。
+- **宿主装配**：host.config 装起 Kernel、Lang0、模型与 Docker 文件执行，app 自己的 root Definition，一次性客户端 `croon-app run`，见 Host/README.md。端到端由 host 的 `host`、`delegation` 测试验收，用真 Docker 与脚本化或回放的模型。
+- **模型**：OpenAI Chat Completions 适配器；录制与回放按逻辑行动领用；失败按谁能修好分成 use 与宿主故障，见 Model/README.md。真 Provider 由 `smoke` 冒烟。
+- **工作区**：私有工作区收拢快照、派生与采用；并入按目录三方合并，不看提交状态，不在 /work 里生成提交，结果确定，见 Library/Runtime.md「工作区」。
+- **恢复**：每个提交点前后停下，重跑结果与记录序列相同（`recovery`）；exec 在途时 SIGKILL，旧 attempt 退役、新 attempt 重做（`kill`）；宿主故障时客户端带原因退出，修好后重跑重开接着走（`failure`）。
+- **场景**：Delegate 场景归本仓库，root 用 host.root，预期由 CPython 独立求出并逐条核对，见 Library/Scenarios/Delegate.md。
 
-**尚未落地**：Charter 的构造查了四条纯结构的，见 croon:docs/Kernel/Definition/README.md「检查」；「写死的 Definition 满足它的 Seat」要读闭包，还没查；实例化仍一律拒绝。持久终止意图与嵌套 Collective 的同次收尾已写进设计，真实终止途中崩溃仍待验证；当前执行 attempt 的退役和普通收取恢复已验证。
+**尚未落地**：exec 的耗时没有实测，每次工具调用都起一整套容器；root entry 只在进程内，没有 socket 与持续对话；W0 还不能在运行中构造新的 Definition；结果只写进新目录，写回用户仓库仍待定。Charter 的实例化在 Kernel 一侧仍一律拒绝，见 croon:docs/Plan.md。
 
 ## 下一步
 
-顺序是推断，前一步的结果会改变后一步。文档整理仍只做两类：现在能显著集中语义的，以及现在成本低、以后成本高的；其余随设计改写。Draft 保留在 context，可视化只在 Draft 里整理，不进正文。
+顺序是推断，前一步的结果会改变后一步。
 
-1. **完成场景迁移**：让 Approval、Binding、W0 → S 与 Lang0/WASM 场景全部使用显式 Bundle、delivery、accepted 和新的 Definition body。
-2. **完成终止闭环**：实现持久终止意图、嵌套 Collective 收尾和真实终止途中崩溃恢复。
-3. **模型与客户端**：接真实模型适配及经 socket 的 root entry，完成真实任务交付，再扩展制造闭环；与 Charter 的实现可按契约并行。
-
-系统内构造 Language 的装载路线已有实验，正式对象形状、执行条件与终止语义留在 croon:docs/Kernel/Language.md「待定」，等独立的构造使用场景需要它时推进；不占住上述步骤。
+1. **实测 exec**：用真模型跑几个真实任务，量每次工具调用的耗时与一个任务里 exec 的次数，再决定容器池、增量物化这类优化要不要做、做哪一种。
+2. **持续对话**：经 socket 的 root entry，根能对运行中的 W0 连发几句、软打断与硬打断；场景见 croon:docs/Kernel/README.md 的「W0 持续对话」。
+3. **制造闭环**：W0 运行中构造另一份 Definition 再实例化，代码依赖取自自己 Definition 的完整 Bundle；判据见「制造闭环」。
+4. **写回仓库**：以导入时的目录 Bundle 为基准把结果并回用户仓库，冲突时报告；见 Library/Organization.md 的待定。
 
 ## 内核分离
 

@@ -79,15 +79,19 @@ impl Temp {
     }
 }
 
+/// 一个系统的文件执行容器都带 `croon.provider=<前缀>` 标签；前缀由恢复身份派生，与 directory 的命名一致。
+pub fn prefix(system: &str) -> String {
+    let identity = format!("{system}/directory");
+    format!(
+        "croon-exec-{}",
+        croon_eval::value::ValueId::of_bytes(identity.as_bytes()).hex()
+    )
+}
+
 impl Drop for Temp {
     fn drop(&mut self) {
         for system in self.systems.borrow().iter() {
-            // 前缀由恢复身份派生，与 directory 的命名一致。
-            let identity = format!("{system}/directory");
-            let prefix = format!(
-                "croon-exec-{}",
-                croon_eval::value::ValueId::of_bytes(identity.as_bytes()).hex()
-            );
+            let prefix = prefix(system);
             if let Ok(out) = Command::new("/usr/bin/docker")
                 .args([
                     "ps",

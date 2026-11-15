@@ -13,10 +13,58 @@
 一次运行按顺序做五件事：
 
 1. 打开 Kernel：Language 只装 `lang0@1`；宿主 Port 按恢复身份装上模型（`model.generate`）与文件执行（`directory.exec`）。凭据只在宿主配置与提供者里，不进 Definition、输入或 Journal。
-2. 导入：Library 的目录 Bundle、预置 Definition 与用户仓库。用户仓库经 Directory 的导入成为目录 Bundle；带不带 .git、跳不跳被忽略的文件，由宿主配置写明，宿主不猜。
+2. 导入：Library 的目录 Bundle、预置 Definition 与用户仓库。用户仓库经 Directory 的导入整份成为目录 Bundle，.git 与被忽略的文件都在内：W0 的合并要从候选里的仓库取提交。只想交出一部分的，先准备好那个目录。
 3. 创建 root entry，按「root entry」的 Interface 与 binding 接线。
 4. 作为客户端驱动 root entry：构造要运行的 Definition，实例化它并附带 engine 与 exec，向它的 Notify 登记并附带接到 done 的 back，按 via 取结束结果。
 5. 结果快照由根物化到一个新的空目录。不覆盖用户的仓库，写回见「待定」。
+
+## 配置
+
+一次运行装配的全部东西写在一份配置文件里，由启动入口显式指定；宿主不从环境变量或当前目录找配置。路径都是绝对路径。
+
+```json host.config
+{
+  "description": "宿主配置：一个系统的名字、Kernel 目录、模型来源与文件执行的装配",
+  "type": "object",
+  "properties": {
+    "system": {"type": "string", "description": "系统名；恢复身份由它派生"},
+    "kernel": {"type": "string", "description": "Kernel 目录：记录库与内容库"},
+    "model": {
+      "anyOf": [
+        {"type": "object", "properties": {"provider": {"type": "string", "description": "符合 model.provider 的配置文件"}}, "required": ["provider"], "additionalProperties": false},
+        {"type": "object", "properties": {"provider": {"type": "string"}, "record": {"type": "string", "description": "录像写到这里，不能已经存在"}}, "required": ["provider", "record"], "additionalProperties": false},
+        {"type": "object", "properties": {"replay": {"type": "string", "description": "要回放的录像"}}, "required": ["replay"], "additionalProperties": false}
+      ]
+    },
+    "directory": {
+      "type": "object",
+      "properties": {
+        "state": {"type": "string", "description": "提供者的私有 state 目录"},
+        "docker": {"type": "string"},
+        "python": {"type": "string"},
+        "image": {"type": "string", "description": "任务镜像"},
+        "collector_image": {"type": "string", "description": "可信采集镜像，要有 python3"},
+        "platform": {"type": "string"},
+        "cpus": {"type": "string"},
+        "memory_bytes": {"type": "integer"},
+        "work_bytes": {"type": "integer"},
+        "temporary_bytes": {"type": "integer"},
+        "pids": {"type": "integer"},
+        "output_bytes": {"type": "integer"},
+        "nodes": {"type": "integer"},
+        "archive_bytes": {"type": "integer"},
+        "cleanup_timeout_seconds": {"type": "integer"}
+      },
+      "required": ["state", "docker", "python", "image", "collector_image", "platform", "cpus", "memory_bytes", "work_bytes", "temporary_bytes", "pids", "output_bytes", "nodes", "archive_bytes", "cleanup_timeout_seconds"],
+      "additionalProperties": false
+    }
+  },
+  "required": ["system", "kernel", "model", "directory"],
+  "additionalProperties": false
+}
+```
+
+恢复身份是 `<系统名>/model` 与 `<系统名>/directory`，写进 root entry 的 binding。文件执行的容器名与 state 锁由恢复身份派生，所以一台机器上的两个系统要用不同的名字；同一个名字必须始终配同一个 Kernel 目录与 state 目录。录制与回放沿用模型的恢复身份：换录像不换系统名。
 
 ## root entry
 
@@ -27,6 +75,29 @@
 | exec | Required | 宿主，`directory.exec` |
 | back | Required | self，接到自己的 done |
 | done | Provided | 收 `definition.outcome` |
+
+Definition 是本仓库自己的，不借 croon 场景里的共享 root：
+
+```json host.root
+{
+  "evaluator": "external",
+  "interface": {
+    "description": "root entry：根在系统内交任务、取结果",
+    "signature": {"in": {}, "out": {}},
+    "provides": {
+      "done": {"description": "收结束状态", "in": {"$block": "definition.outcome"}, "attach": {"additionalProperties": false}}
+    },
+    "requires": {
+      "pack": {"$block": "reference.kernel#/pack"},
+      "construct": {"$block": "reference.kernel#/construct"},
+      "instantiate": {"$block": "reference.kernel#/instantiate"},
+      "engine": {"$block": "model.generate"},
+      "exec": {"$block": "directory.exec"},
+      "back": {"$block": "host.root#/interface/provides/done"}
+    }
+  }
+}
+```
 
 Required port 在诞生时写定，运行中再接新东西是 Kernel 的待定，所以 root entry 的 Interface 就是这个系统能用的全部外部能力。第一版只接一个模型；要异质检验时换一份声明多个模型的 root Definition，是增量。root entry 不接自己的 Look，也不收别的到达：它只交任务、等结束。
 
@@ -48,7 +119,6 @@ Required port 在诞生时写定，运行中再接新东西是 Kernel 的待定�
 
 ## 待定
 
-- 宿主配置的形状：模型配置的路径、Docker 装配、Kernel 与 state 目录。随宿主的实现写进 schema。
 - 写回用户已有的仓库：以导入时的目录 Bundle 为基准三方合并，还是拒绝并报告；见 Library/Organization.md 的待定「root entry 与磁盘上的仓库」。没有场景。
 - 经 socket 连上的 root entry 与持续对话，见 Plan.md 的「运行闭环」。场景：W0 持续对话。
 - 多个模型槽位。场景：异质检验。

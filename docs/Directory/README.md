@@ -59,7 +59,7 @@ snapshot 的 ID 是领域数据，结果 dependencies 明确包含该根。请�
 
 Linux 导入与物化以不跟随链接的目录 FD 为锚，用 openat(O_NOFOLLOW) 读写子项；lstat 只分类，打开后再检查普通文件。导入前由提供者停止写者；物化目标为空且属本次私有范围。普通链接保留字面目标，容器内解析它时只能接触隔离环境。目录节点、字节和收集 archive 的上限由装配显式给出，耗尽按宿主故障停下。
 
-文件提供者使用显式路径的 Docker CLI 与 Python 标准库 tarfile。镜像必须已在本机，--pull=never；装配固定任务与可信采集镜像、平台及资源；拒绝镜像自带的可写 volume。任务与采集器显式限定 CPU、内存、进程数，临时文件受 tmpfs 限额；stdout、stderr 各自按输出上限截断。/work 和 /tmp 用限额私有 tmpfs，其他输入从本次私有物化目录只读挂入。初始快照只读挂在 /croon-input，再复制进 /work；镜像需提供 /bin/sh、cp 与 sleep；它的 PID 1 只保活环境，命令经 docker exec 在 /work 运行。
+文件提供者使用显式路径的 Docker CLI 与 Python 标准库 tarfile。镜像必须已在本机，--pull=never；装配固定任务与可信采集镜像、平台及资源；拒绝镜像自带的可写 volume。任务与采集器显式限定 CPU、内存、进程数，临时文件受 tmpfs 限额；stdout、stderr 各自按输出上限截断。/work 和 /tmp 用限额私有 tmpfs，其他输入从本次私有物化目录只读挂入。初始快照只读挂在 /croon-input，再复制进 /work；镜像需提供 /bin/sh、cp 与 sleep，Library 的 diff 与合并还要 git；本仓库的任务镜像由 crates/directory/images/work.Dockerfile 建出；它的 PID 1 只保活环境，命令经 docker exec 在 /work 运行。
 
 宿主 watchdog 在 deadline 发出按固定容器 ID 的 pause，不依赖 Kernel 调用 collect；CLI 故障传回收取路径，保留身份等待修复。宿主进程崩溃由恢复 retire 收尾。命令退出或超时后先确认 docker pause，冻结整个任务 cgroup，再启动独立可信采集容器。采集器只共享任务的 PID namespace，以 SYS_PTRACE 读取 /proc/1/root/work；它使用只读 root、network none、cap-drop ALL，不加入任务 cgroup。可信 Python 先检查节点和字节预算，再流式输出普通文件、目录与符号链接的 tar。archive 以固定大小缓冲直接限额写入私有暂存文件，不保留整份内存副本；采集器退出码为零且按固定 ID 删除后，才原子改名确认 archive 完整。采集超限或失败立即尝试删除采集器，任务仍保持冻结；清理失败保留身份并报宿主故障。archive 完整落盘后用 rm -f 确认所有写者终止；随后 tarfile 流式解析，先检查路径、节点数与文件大小，只接受普通文件、目录、符号链接，拒绝 hardlink 和特殊文件。解析不调用 extract 或 extractall；只在私有空目录内建立已校验条目，父项必须是真目录。全部解析成功后才导入 Bundle，失败保留原 attempt 待收齐；暂停不冒充已终止。
 

@@ -35,30 +35,39 @@ croon-app 拥有模型适配、Directory 与 Docker 文件执行、Library 与 A
 - **工作区**：私有工作区收拢快照、派生与采用；并入按目录三方合并，不看提交状态，不在 /work 里生成提交，结果确定，见 Library/Runtime.md「工作区」。
 - **恢复**：每个提交点前后停下，重跑结果与记录序列相同（`recovery`）；exec 在途时 SIGKILL，旧 attempt 退役、新 attempt 重做（`kill`）；宿主故障时客户端带原因退出，修好后重跑重开接着走（`failure`）。
 - **场景**：Delegate 场景归本仓库，root 用 host.root，预期由 CPython 独立求出并逐条核对，见 Library/Scenarios/Delegate.md。
+- **运行中构造**：`definition.infer` 是宿主的纯计算 Port，从草稿的 body 推出 Interface；construct 仍按规范文本核对，宿主的推导不当成事实（Host/README.md「构造的推导」）。W0 接上 pack、construct、infer，工具 `construct_agent` 让模型只写 Lang0 源码就能造出 Definition，写错的源码得到带位置的诊断（`construct`）。
 
-**尚未落地**：没有上手路径，README 不写怎样建任务镜像、写 host.config、跑 `croon-app run`，`config/` 下也没有模板；需要真 Docker 的测试都标了 ignore，没有统一的跑法与前提说明，其中 `smoke` 会调用真模型。exec 的耗时没有实测，每次工具调用都起一整套容器；root entry 只在进程内，没有 socket 与持续对话；W0 还不能在运行中构造新的 Definition；结果只写进新目录，写回用户仓库仍待定。
+**尚未落地**：没有上手路径，README 不写怎样建任务镜像、写 host.config、跑 `croon-app run`，`config/` 下也没有模板；需要真 Docker 的测试都标了 ignore，没有统一的跑法与前提说明，其中 `smoke` 会调用真模型。exec 的耗时没有实测，每次工具调用都起一整套容器；root entry 只在进程内，没有 socket 与持续对话；造出的 Agent 还不能交办（交办仍实例化根从 input 里给的 worker）；结果只写进新目录，写回用户仓库仍待定。
+
+**没有证据的地方**：真实模型写 Definition 只有一份人造的例子（`main` 缺类型标注，改一次就过）。真实任务的完成率、构造要几轮、失败卡在哪一层（报错文本、工具说明、库级提示词、机制本身，还是模型能力）都没有数据。
 
 ## 下一步
 
 顺序是推断，前一步的结果会改变后一步。
 
-1. **上手路径**：README 加「运行」一节，写建镜像（含换源参数）、host.config 与 `croon-app run`；提交 `config/` 下的配置模板；写明需要真 Docker 的测试怎样跑、前提是什么、哪些会调用真模型。判据是别人按 README 能跑通一次任务，即阶段 2 的入口。
-2. **实测 exec**：用真模型跑几个真实任务，量每次工具调用的耗时与一个任务里 exec 的次数，再决定容器池、增量物化这类优化要不要做、做哪一种。
-3. **持续对话**：经 socket 的 root entry，根能对运行中的 W0 连发几句、软打断与硬打断；场景见 croon:docs/Kernel/README.md 的「W0 持续对话」。
-4. **制造闭环**：按「制造闭环」的三步，先做 Cognition 版：W0 接上 construct，运行中构造另一份 Definition 再实例化、交办、并入。
-5. **写回仓库**：以导入时的目录 Bundle 为基准把结果并回用户仓库，冲突时报告；见 Library/Organization.md 的待定。
+1. **建闭环的实验台**：先手动跑批，不做成 Agent。三样东西：
+   - **任务集**：一批小任务，每个带一个由 Docker 里的检查命令给出的判据，不由模型自己说完成。数量要够，只几个任务上改出来的优化只是针对这几个任务的补丁。
+   - **跑批程序**：每个任务用真模型 record 模式跑，一遍多次看方差；记录构造轮数、每轮失败的 kind 与 message、造出的 Agent 跑没跑完、判据过没过。
+   - **分类与对比**：先收集失败分类，再选一个杠杆（报错文本、工具说明与示例、库级提示词、Lang0 子集与 Library 函数、模型能力）改，用同一批任务重跑对比。一次只改一个。
+
+   判据：能说清下一个要改的杠杆是什么、证据是哪个任务的哪一类失败。这就是「制造闭环」判据里「几轮内改对，改不对说明路不成立」的实测，也是 Plan 里「LLM 表现量化」的提前。
+2. **上手路径**：和第 1 项一起做，因为跑批要先能配起来：README 加「运行」一节，写建镜像（含换源参数）、host.config 与 `croon-app run`；提交 `config/` 下的配置模板；写明需要真 Docker 的测试怎样跑、前提是什么、哪些会调用真模型。判据先降到「我自己照 README 能跑通一次任务」，阶段 2 的「别人能跑」等 1 的结果。
+3. **造出来能交办**：按 Interface 接线的交办工具，输入从 Interface 来，Required port 只从调用者自己持有的里附带，缺的与多的都报错。不为省事要求造出来的 Agent 与 S 同形。之后回填「制造闭环」Cognition 版剩下的两步：实例化、并入。
+4. **持续对话**：经 socket 的 root entry，根能对运行中的 W0 连发几句、软打断与硬打断；场景见 croon:docs/Kernel/README.md 的「W0 持续对话」。
+5. **实验台做成 Definition**：一个专门跑上述闭环的 Definition，跟它说话就能提实验、看结果，不必我们自己跑。放在 1 之后：指标可靠之前不该把它交给一个 Agent；它自己也要用第 3 项的交办。要让判据由框架外固定的检查命令给出，不能让被测的 Agent 自己评自己，否则它学会的是迎合指标。
+6. **写回仓库**：以导入时的目录 Bundle 为基准把结果并回用户仓库，冲突时报告；见 Library/Organization.md 的待定。
 
 ## 制造闭环
 
 一个主体在运行中造出另一个主体，交办一件事，审过结果再并入。它检验「Definition 与 Charter 是数据」这两个最大的设计赌注，也是三条保证（授权只收窄、修正权独立、可追溯）第一次合在一起被看见。分三步，前一步不通不做后一步：
 
-1. **Cognition 版**：W0 接上 construct，经工具构造一份 Cognition Definition，实例化、交办、并入。代码依赖取自自己 Definition 的完整 Bundle，模型碰不到 ID。不依赖 Kernel 的新功能。
+1. **Cognition 版**：W0 接上 construct，经工具构造一份 Cognition Definition，实例化、交办、并入。代码依赖取自自己 Definition 的完整 Bundle，模型碰不到 ID。不依赖 Kernel 的新功能。现已做了第一步的一半：构造已通（`definition.infer`、`construct_agent`），实例化、交办、并入还没有。
 2. **模板与说明**：Library 提供 Charter 生成函数（N 个同样的 Seat、审计者、熔断者）与工具目录「查」里的说明，模型选模板、填参数，不手写整份 JSON。
 3. **Charter 版**：同样的流程，造的是 Charter。依赖 Kernel 的终止闭环（门结束时 Collective 与其余成员同次结束）与对 Collective 的 Correct，见 croon:docs/Kernel/Instance.md「待定」。
 
 判据写成失败就说明设计错了的形式：
 
-- 模型写错的 Definition 在构造时被拒，报错带路径，几轮内改对；改不对，说明「模型直接写 Definition」这条路不成立，改由 Library 生成。
+- 模型写错的 Definition 在构造时被拒，报错带路径，几轮内改对；改不对，说明「模型直接写 Definition」这条路不成立，改由 Library 生成。现在只验了报错带路径；几轮内改对要由「下一步」第 1 项的实验台量。
 - 造出的主体跑完，结果经 Notify 回到发起者；越权的接线被拒；检查器查得出「审计者被执行者控制」这类图性质。
 - 全程任一处杀掉宿主进程，重跑得到相同的结果。
 - 委托深度先定：W0 造出的主体能否再委托，按 Library/Runtime.md「委托不超过两层」的默认接线写进场景。

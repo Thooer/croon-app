@@ -38,6 +38,9 @@ Library 里的一个函数，不是 Definition：它收工具，工具是函数�
   - 它要用 instantiate，所以由 Principal 决定给不给。"动态增加工具"就是给这个。
   - 代价：用不上 provider 原生的工具调用。好处：原生的工具列表不变，前缀缓存不失效。
 - **构造与交办**：构造 Definition；交办（实例化，立即返回）；等待（向 Notify 登记，再取）；查看（不等待）。
+- **运行中构造 Agent**：`library.agents` 的 `construct_agent(name, source)` 是一个工具，模型只写 Lang0 源码。四步：拼草稿，经 `definition.infer` 推出 Interface，经 `pack` 立成 Definition Bundle，再 `construct`。任何一步失败都作为数据回到模型，成功只返回给它的名字；名字到 Definition ID 的对应由工具记着，模型看不到 ID。
+  - 它还不多：造出的 Definition 只登记了名字，交办时还不能指定它，交办仍然实例化根从 input 里给的那个 worker。要能交办造出来的 Agent，得先定交办的输入与接线怎么来，见待定「交办是不是一个固定的工具」。
+  - 源码可以 import library 里的模块；写错的源码得到 Lang0 的诊断，带 `路径:行:列`，作为 use 失败回到模型。
 
 ## 工作区
 
@@ -86,6 +89,7 @@ Middleware 是作为参数传进内层的函数，代替它本来要用的 Port�
 - 工具少而通用，还是多而专门。没有场景。
 - 文件工具的前置条件：读返回内容的 hash，即这个文件在目录 Bundle 里的内容 ID；写与改必填 expected_content_hash（目标不存在时用字面量 absent），不符就不执行，返回独立的错误。能防模型按过期的读去写、并行分支互相覆盖，不需要新的 Kernel 机制（旧稿，推断）。读 ID 可以用 read_json/read_text 或经显式快照的 exec 算。场景：Delegate，并入之后按并入前的读去写。
 - 交办是不是一个固定的工具：现在是根把子 Agent 的 Definition 写进 W0 的 input，模型只写任务；工具目录的「用」是模型按名字选。区别在模型调交办时，要不要自己选 worker 的 Definition。首个场景的写法见 Presets.md 的待定「首个场景里 W0 的写法候选」。场景：运行中构造再实例化。
+  - 运行中构造出来的 Agent 怎样交办（已定一半）：`construct_agent` 已在 W0 里，它只造不跑。交办任意形状的 Agent，输入得按它的 Interface 来，Required port 从调用者自己持有的里按名字附带，缺的与多的都要报错。不做成「造出来的必须与 S 同形」：那会让模型造东西时先猜一个预留的形状，造出来的东西表达不了别的接口。等闭环要用到第二种形状时再做。
 - 交互的封装与写法。场景：W0 持续对话、委托中途反问、B 直接问 A。
   - 子代理即交办，不需要持续的验证与沟通；持续沟通如长期的 Agent、对话，配套持续的验证。两者在沟通次数上是一与多，别的差别由需要决定。多方沟通要不要统一的封装：原想法是 ANA，用主体之间的这套原语组装出 A2A、ACP、ANP 一类协议的功能；沟通的总称候选 Communicative act（沟通行为）。外部协议在系统边界上的绑定见 croon:docs/Kernel/README.md「待定」里的「系统边界」。
   - 写法候选，用 Lang0 的取与引用值：持续沟通与保管者的服务都是一个 while，每一轮取一项到达，由状态与它算出新状态与要发出的 Atom。交办的写法固定，引用的类型来自 Kernel 给的 Port spec，模型不写。

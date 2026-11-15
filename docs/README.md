@@ -10,7 +10,7 @@
 | Model | 模型服务的 Port 形状与宿主适配边界 | croon 的 Value、Reference |
 | Library | 预置 Definition、认知模式、工具目录、组织做法与 Application | croon、croon-lang0、Directory、Model |
 | Application | 按场景装好的 Definition、Charter、接线与提示词 | Library、Directory、Model |
-| Host | 根在系统外的装配：Kernel、Language、宿主 Port、root entry 与客户端 | croon 的 Kernel 运行时、croon-lang0、Directory、Model、Library |
+| Host | 根在系统外的装配：Kernel、Language、宿主 Port、root entry 与客户端，以及 `definition.infer` | croon 的 Kernel 运行时、croon-lang0、Directory、Model、Library |
 
 依赖方向为：croon 是 Kernel 基座，croon-lang0 提供第一种 Language，croon-app 组合 Kernel、Language 与模型和文件执行服务。三个仓库并排放置，path 依赖方向为 croon ← croon-lang0 ← croon-app。
 
@@ -31,6 +31,7 @@
 | 怎样组织多个主体、交接与历史 | Library/Organization.md |
 | 预置 Charter 与 Application 收什么 | Library/Presets.md |
 | 根怎样装起一个系统、交任务、取回结果 | Host/README.md |
+| 运行中怎样把源码变成一份构造得了的 Definition | Host/README.md 的「构造的推导」；Library/Runtime.md 的「工具」里的「运行中构造 Agent」 |
 | 工作区是什么、谁是它的主人、怎样并入 | Library/Runtime.md 的「工作区」 |
 | Library 的某个场景应当跑出什么 Journal | Library/Scenarios/ |
 | 应用侧的证据、先例与研究线索 | Research/；内容按待核验读 |

@@ -28,6 +28,23 @@ croon-app 是建立在 croon 与 croon-lang0 之上的完整应用：模型适�
 - 写代码之前，先把机制写进文档（定义、约束、理由，代码取不取用都行），并让我看懂。
 - App 的文档只写 App 自己的决定。Kernel 与 lang0 的语义只引名字，不复述理由：引用来源在 croon 与 croon-lang0 的对应文档中。
 
+## 从哪里读
+
+三个方向的入口。项目内的不复述内容，只说去哪看；上游的两个以 crate 头部与公开 API 为准，文档只补头部指不到的判断。
+
+| 要读什么 | 入口 |
+|---|---|
+| 本仓库由哪些部分构成、依赖什么 | README.md 的「内容」；docs/README.md 的「构成」与「地图」 |
+| 正在改动的那一部分怎么设计 | docs/ 里对应部分的 README.md；未决的写在那份文件末尾的「待定」 |
+| 现在做到哪了、下一步做什么 | docs/Plan.md；进度只在那里 |
+| 一个场景应当跑出什么 | docs/Library/Scenarios/ 下那个场景的文件 |
+| 公开面的义务（实现 Port、写 Language、装宿主） | crates/*/src/lib.rs 的 `//!` 头部；头部是义务的唯一权威 |
+| 上游 Kernel 的保证、Reference、Journal、Definition | croon 仓库；按 croon:docs/README.md「地图」里按角色的几行进 |
+| 上游 Kernel 的公开面 | `croon-eval`、`croon-port`、`croon-tree` 的 crate 头部；Kernel 运行时看 `kernel` 的头部与它的 tests/host.rs |
+| Lang0 的写法、求值与模块 | croon-lang0 仓库；公开面是 `lang0` crate 的头部与 `lang0::interface`、`lang0::library` |
+
+读上游先按 crate 头部进，不要从 docs 正文逐篇读：头部写实现之前必须知道的东西，正文写为什么。为了弄清上游行为而不得不读它的实现，就是上游的文档缺口，在同一次改动里补上那份头部或对应小节。
+
 ## 文档与代码
 
 ### 唯一出处
@@ -87,5 +104,5 @@ croon-app 是建立在 croon 与 croon-lang0 之上的完整应用：模型适�
 
 - 上游：croon 与 croon-lang0。提供者只依赖 croon-eval、croon-port、croon-tree；Kernel 运行时只由宿主依赖；scenarios 只在测试里用。
 - 下游：无。
-- 本仓库拥有：Model、文件执行、Library 与 `library.*` 生成模块、Application。`library/kernel.py`、`library/model.py`、`library/directory.py` 由 `cargo run -p host --example generate_library -- library` 产生，不进 Git。
+- 本仓库拥有：Model、文件执行、Library 与 `library.*` 生成模块、Application。`library/kernel.py`、`library/model.py`、`library/directory.py`、`library/infer.py` 由 `cargo run -p host --example generate_library -- library` 产生，不进 Git。
 - 读上游先按 croon:docs/README.md「地图」里按角色的几行，从 crate 头部进。为了弄清上游的行为而不得不读它的实现，就是上游的文档缺口：在同一次改动里补上上游的 crate 头部或对应小节，再继续。

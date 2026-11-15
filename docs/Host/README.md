@@ -64,7 +64,7 @@
 }
 ```
 
-恢复身份是 `<系统名>/model` 与 `<系统名>/directory`，写进 root entry 的 binding。文件执行的容器名与 state 锁由恢复身份派生，所以一台机器上的两个系统要用不同的名字；同一个名字必须始终配同一个 Kernel 目录与 state 目录。录制与回放沿用模型的恢复身份：换录像不换系统名。录制中断后不续录：录像文件已存在时录制器拒绝打开；要重录，换一盘新录像，同时换一个新的系统名与 Kernel 目录。原 Kernel 目录里已提交的结果不会再请求模型，新录像就缺了那几条，之后回放对不上。
+恢复身份是 `<系统名>/model`、`<系统名>/directory` 与 `<系统名>/infer`，写进 root entry 的 binding。文件执行的容器名与 state 锁由恢复身份派生，所以一台机器上的两个系统要用不同的名字；同一个名字必须始终配同一个 Kernel 目录与 state 目录。录制与回放沿用模型的恢复身份：换录像不换系统名。录制中断后不续录：录像文件已存在时录制器拒绝打开；要重录，换一盘新录像，同时换一个新的系统名与 Kernel 目录。原 Kernel 目录里已提交的结果不会再请求模型，新录像就缺了那几条，之后回放对不上。
 
 ## 运行参数
 
@@ -80,8 +80,11 @@
 | pack、construct、instantiate | Required | Kernel |
 | engine | Required | 宿主，`model.generate` |
 | exec | Required | 宿主，`directory.exec` |
+| infer | Required | 宿主，`definition.infer` |
 | back | Required | self，接到自己的 done |
 | done | Provided | 收 `definition.outcome` |
+
+root entry 接上 `infer`，运行中的主体才能把写好的源码变成构造得了的 Definition：只接 `pack` 与 `construct` 时，模型得手写 Interface。
 
 Definition 是本仓库自己的，不借 croon 场景里的共享 root：
 
@@ -100,6 +103,7 @@ Definition 是本仓库自己的，不借 croon 场景里的共享 root：
       "instantiate": {"$block": "reference.kernel#/instantiate"},
       "engine": {"$block": "model.generate"},
       "exec": {"$block": "directory.exec"},
+      "infer": {"$block": "definition.infer"},
       "back": {"$block": "host.root#/interface/provides/done"}
     }
   }
@@ -107,6 +111,49 @@ Definition 是本仓库自己的，不借 croon 场景里的共享 root：
 ```
 
 Required port 在诞生时写定，运行中再接新东西是 Kernel 的待定，所以 root entry 的 Interface 就是这个系统能用的全部外部能力。第一版只接一个模型；要异质检验时换一份声明多个模型的 root Definition，是增量。root entry 不接自己的 Look，也不收别的到达：它只交任务、等结束。
+
+## 构造的推导
+
+`definition.infer` 从一份 Definition 草稿的 body 推出 Interface：纯计算，没有世界效果，通道是可丢弃的。它不建立构造事实：construct 会把推出的 Interface 与 Definition 里写的按规范文本比对，推错也过不了构造，Kernel 不把宿主的推导当成事实。
+
+```json definition.infer
+{
+  "description": "从 Definition 草稿的 body 推出 Interface；纯计算，不建立构造事实",
+  "in": {
+    "type": "object",
+    "properties": {
+      "language": {"enum": ["lang0@1"]},
+      "body": {
+        "type": "object",
+        "properties": {
+          "source": {"type": "string"},
+          "modules": {"type": "string", "description": "模块目录的 Tree ID，要在本次交付的依赖里"}
+        },
+        "required": ["source"],
+        "additionalProperties": false
+      }
+    },
+    "required": ["language", "body"],
+    "additionalProperties": false
+  },
+  "attach": {"additionalProperties": false},
+  "out": {
+    "value": {
+      "type": "object",
+      "properties": {"interface": {"type": "object"}},
+      "required": ["interface"],
+      "additionalProperties": false
+    },
+    "attach": {"additionalProperties": false}
+  }
+}
+```
+
+写好的 Interface 不交给模型手写：它是 `main` 签名的派生物，手写就是同一个事实的第二份，要逐字对上 docstring 的 `Args:`、required 的顺序与 Port spec 的全文，写错一点就构造不了。推导只有宿主做得到，`lang0::interface` 是 Rust 的公开函数，body 里取不到。所以运行中构造主体时，模型只写源码，Interface 由这个 Port 算。
+
+- **读取范围**：草稿的 `modules` 要在本次交付的 dependencies 里，否则读不到模块源码。宿主 Port 只读本次请求闭包，不从调用者别处补齐。
+- **失败**：Lang0 的诊断原样交回，带 `路径:行:列` 与「用什么代替」的说明，作为 use 失败回到调用者；装载、资源耗尽这类是宿主故障，停下调用者，不写业务结果。
+- **重放**：结果记进 Journal，重做不重算。宿主构建变了，推出的接口也可能变，固进 Library 的生成模块随目录 Bundle 一起定格。
 
 ## 客户端
 

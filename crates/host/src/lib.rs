@@ -7,6 +7,7 @@
 //! - 同一个 Kernel 目录再跑一次就是恢复：已有 root entry 时不再创建，按原键重报同样的几步；
 //!   任务或仓库变了是重放分歧。
 //! - 结果只写进一个新的空目录，不碰用户的仓库。
+//! - [`Assembly`] 里给的模型 Port，恢复身份必须是 `<系统名>/model`；故障点只用于测试。
 //!
 //! 参考：docs/Host/README.md（装配、配置、root entry、客户端）。
 
@@ -16,6 +17,7 @@ pub mod library;
 use croon_port::store::{Budgets, Content};
 use croon_port::{Bundle, CheckError, HostError, Port, Read};
 use kernel::host::{Config as KernelConfig, Language};
+pub use kernel::host::{Fault, FaultHook};
 use kernel::kernel::{Conn, Kernel, KernelError};
 use serde_json::{Value as Json, json};
 use std::collections::BTreeMap;
@@ -172,6 +174,15 @@ impl Settings {
     }
 }
 
+/// 配置文件之外的运行参数，都可以不给。见 docs/Host/README.md「运行参数」。
+#[derive(Default)]
+pub struct Assembly {
+    /// 代替配置里的模型来源；恢复身份必须是 `<系统名>/model`。
+    pub model: Option<Rc<dyn Port>>,
+    /// 原样交给 Kernel 的故障点，只用于测试。
+    pub fault: Option<FaultHook>,
+}
+
 /// 一次运行的结果：W0 的总结与它最终采用的目录 Bundle。
 pub struct Finished {
     pub summary: String,
@@ -271,8 +282,26 @@ impl Client<'_> {
 }
 
 /// 按装配的五步跑完一个任务，结果物化到新的空目录 `out`。
-pub fn run(settings: &Settings, repo: &Path, task: &str, out: &Path) -> Result<Finished> {
-    let model = settings.model_port()?;
+pub fn run(
+    settings: &Settings,
+    assembly: Assembly,
+    repo: &Path,
+    task: &str,
+    out: &Path,
+) -> Result<Finished> {
+    let model = match assembly.model {
+        Some(model) => {
+            let identity = format!("{}/model", settings.system);
+            if model.id() != identity {
+                return Err(Error(format!(
+                    "运行参数里的模型恢复身份是 {}，要是 {identity}",
+                    model.id()
+                )));
+            }
+            model
+        }
+        None => settings.model_port()?,
+    };
     let exec: Rc<dyn Port> = Rc::new(directory::Docker::new(settings.directory.clone())?);
     let mut kernel = Kernel::open(
         &settings.kernel,
@@ -281,7 +310,7 @@ pub fn run(settings: &Settings, repo: &Path, task: &str, out: &Path) -> Result<F
             budgets: BUDGETS,
             ports: BTreeMap::new(),
             clock: Box::new(now),
-            fault: None,
+            fault: assembly.fault,
         },
     )?;
 

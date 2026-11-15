@@ -31,7 +31,9 @@ fn main() -> ExitCode {
         eprintln!("{USAGE}");
         return ExitCode::from(2);
     };
-    match host::Settings::load(&config).and_then(|s| host::run(&s, &repo, &task, &out)) {
+    match host::Settings::load(&config)
+        .and_then(|s| host::run(&s, host::Assembly::default(), &repo, &task, &out))
+    {
         Ok(finished) => {
             println!("{}", finished.summary);
             println!("结果：{}（{}）", out.display(), finished.snapshot);

@@ -25,7 +25,7 @@
 | 应用由哪些部分构成、依赖什么 | 本文的「构成」；应用侧的计划见 Plan.md |
 | Directory 怎样导入、物化与执行文件 | Directory/README.md |
 | Tree 的目录内容形状是什么 | croon:docs/Tree.md「Tree」 |
-| 模型服务的 Port 形状与调用边界 | Model/README.md |
+| 模型服务的 Port 形状、宿主适配与配置 | Model/README.md |
 | Library 怎样运行 ReAct、工具与交办 | Library/Runtime.md |
 | 怎样组织多个主体、交接与历史 | Library/Organization.md |
 | 预置 Charter 与 Application 收什么 | Library/Presets.md |

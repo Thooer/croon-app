@@ -46,6 +46,28 @@
 
 首版模型服务接收文本，不隐式读取交付依赖。需要向模型提供文件时，程序先读取并明确组织为输入；提供者不能借调用者的整个读取范围找材料。
 
-具体 HTTP 适配、推理签名、缓存控制、部分结果和 provider 错误仍需实际接入时定。当前形状供确定的服务装配验收，不能把假的结果当作已完成真实模型接入。
+## 宿主适配
 
-参考：../Library/Runtime.md（ReAct）。
+`model.generate` 是 Library 与 Kernel 之间稳定使用的 Port 形状；网络协议和凭据属于宿主适配器。`execution` 提供 OpenAI Chat Completions 协议适配器，读取符合 `model.provider` 的配置文件后构造宿主 Port，再按 root binding 的恢复身份装入 Kernel。Definition 只声明 `model.generate`，不包含 endpoint、模型账户或 API key。其他协议应实现同一 Port，不改变 Library 的 Definition。
+
+```json model.provider
+{
+  "type": "object",
+  "properties": {
+    "protocol": { "enum": ["openai_chat_completions"] },
+    "base_url": { "type": "string" },
+    "api_key": { "type": "string" },
+    "model": { "type": "string" },
+    "max_output_tokens": { "type": "integer" },
+    "timeout_seconds": { "type": "integer" }
+  },
+  "required": ["protocol", "base_url", "api_key", "model", "max_output_tokens", "timeout_seconds"],
+  "additionalProperties": false
+}
+```
+
+配置文件由宿主启动入口显式指定；适配器不从环境变量或当前目录隐式寻找配置。开发机上的本地配置可放在 `config/agent-provider.json`，该文件由仓库的 `.gitignore` 排除。真实 Provider 错误作为宿主故障返回，不能合成为正常模型结果。
+
+HTTP 适配、推理签名、缓存控制、部分结果和其他协议仍需各自的实际场景确定。当前适配器映射 `model.generate` 的文本消息、函数工具调用和完成状态，不把它声明成所有 Provider 的共同协议。
+
+参考：../Directory/README.md（文件执行）；../Library/Runtime.md（ReAct）。

@@ -18,6 +18,13 @@ pub static BLOCKS: &[Block] = &[
         file: "crates/execution/schema/model.generate.json",
         line: 0,
     },
+    Block {
+        name: "model.provider",
+        lang: "json",
+        text: include_str!("../schema/model.provider.json"),
+        file: "crates/execution/schema/model.provider.json",
+        line: 0,
+    },
 ];
 
 pub fn json(name: &str) -> serde_json::Value {

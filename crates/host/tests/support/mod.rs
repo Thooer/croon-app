@@ -2,6 +2,7 @@
 //! 每个系统各有自己的 Kernel 目录与 state 目录；结束时只清这些系统的容器。
 #![allow(dead_code)]
 
+use croon_port::{Call, Channel, Execution, HostDone, HostError, Port};
 use serde_json::{Value as Json, json};
 use std::cell::RefCell;
 use std::fs;
@@ -40,6 +41,11 @@ impl Temp {
         system
     }
 
+    /// 这个系统的 Kernel 目录。
+    pub fn kernel(&self, system: &str) -> PathBuf {
+        self.root.join(format!("kernel-{system}"))
+    }
+
     /// 这个系统的宿主配置，模型来源是回放 `cassette`；Kernel 与 state 目录按系统名分开。
     pub fn config(&self, system: &str, cassette: &Path) -> PathBuf {
         let path = self.root.join(format!(
@@ -48,7 +54,7 @@ impl Temp {
         ));
         let value = json!({
             "system": system,
-            "kernel": self.root.join(format!("kernel-{system}")),
+            "kernel": self.kernel(system),
             "model": {"replay": cassette},
             "directory": {
                 "state": self.root.join(format!("state-{system}")),
@@ -99,6 +105,82 @@ impl Drop for Temp {
             }
         }
         let _ = fs::remove_dir_all(&self.root);
+    }
+}
+
+/// 按请求回答的模型：看 system 分辨 W0 与 S，看消息条数决定这一轮做什么。
+/// W0 交办一处修改；`three_way` 时它在等结果之后自己也写一个文件，再并入，走目录级三方合并。
+pub struct Scripted {
+    pub identity: String,
+    pub three_way: bool,
+}
+
+impl Scripted {
+    fn answer(&self, request: &Json) -> Json {
+        let messages = request["messages"].as_array().unwrap();
+        if let Some(last) = messages.last()
+            && last["role"] == "tool"
+            && let Some(bad) = last["results"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .find(|r| r["is_error"] == true)
+        {
+            // 工具失败就结束，把原因放进总结，测试在断言处看得到。
+            return llm(&format!("工具失败：{}", bad["output"]), json!([]));
+        }
+        let w0 = request["system"].as_str().unwrap().contains("W0");
+        let mut plan = Vec::new();
+        if w0 {
+            plan.push(("delegate", json!({"name": "fix", "task": "修好 a.py"})));
+            if self.three_way {
+                plan.push(("write_file", json!({"path": "o.txt", "content": "ours\n"})));
+            }
+            plan.push(("merge", json!({"name": "fix"})));
+        } else {
+            // S 只写文件、不提交：并入不看提交状态。
+            plan.push(("write_file", json!({"path": "a.py", "content": "fixed\n"})));
+        }
+        let turn = messages.len() / 2;
+        match plan.get(turn) {
+            Some((name, input)) => llm(
+                "",
+                json!([{"id": format!("c{}", turn + 1), "name": name, "input": input}]),
+            ),
+            None => llm(
+                if w0 {
+                    "已修好 a.py"
+                } else {
+                    "改好了 a.py"
+                },
+                json!([]),
+            ),
+        }
+    }
+}
+
+impl Port for Scripted {
+    fn id(&self) -> &str {
+        &self.identity
+    }
+    fn channel(&self) -> Channel {
+        Channel::Discardable
+    }
+    fn start(&self, call: &Call) -> Result<Box<dyn Execution>, HostError> {
+        Ok(Box::new(Ready(HostDone {
+            outcome: self.answer(call.value),
+        })))
+    }
+    fn retire(&self, _attempt: &str) -> Result<(), HostError> {
+        Ok(())
+    }
+}
+
+struct Ready(HostDone);
+
+impl Execution for Ready {
+    fn collect(&mut self) -> Result<Option<HostDone>, HostError> {
+        Ok(Some(self.0.clone()))
     }
 }
 

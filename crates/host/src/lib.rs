@@ -14,6 +14,7 @@
 //! 参考：docs/Host/README.md（装配、配置、root entry、客户端）。
 
 mod blocks;
+pub mod infer;
 pub mod library;
 
 use croon_port::store::{Budgets, Content};

@@ -18,6 +18,13 @@ pub static BLOCKS: &[Block] = &[
         file: "crates/host/schema/host.root.json",
         line: 0,
     },
+    Block {
+        name: "definition.infer",
+        lang: "json",
+        text: include_str!("../schema/definition.infer.json"),
+        file: "crates/host/schema/definition.infer.json",
+        line: 0,
+    },
 ];
 
 pub fn json(name: &str) -> serde_json::Value {

@@ -13,6 +13,15 @@ use support::{Temp, llm};
 
 const BAD: &str = "def main(x) -> int:\n    return x\n";
 const GOOD: &str = "def main(x: int) -> int:\n    return x + 1\n";
+/// 要的 Port 交办方给不了：构造通过，但返回值当场说出接不上，模型不必等到交办才发现。
+const UNSUPPLIED: &str = r#"from typing import Any
+from library.kernel import Pack
+
+
+def main(pack: Pack) -> Any:
+    """要 pack，交办方给不了。"""
+    return None
+"#;
 
 /// 脚本化的 W0 模型：先交写错的源码，看到失败后交改对的，最后收尾；记下每次收到的请求。
 struct Constructing {
@@ -40,6 +49,7 @@ impl Port for Constructing {
         let outcome = match turn {
             0 => construct("c1", BAD),
             1 => construct("c2", GOOD),
+            2 => construct("c3", UNSUPPLIED),
             _ => llm("已造好 helper", json!([])),
         };
         Ok(Box::new(Ready(HostDone { outcome })))
@@ -83,7 +93,7 @@ fn a_wrong_source_comes_back_as_a_diagnostic_and_a_fixed_one_is_constructed() {
     assert_eq!(first.summary, "已造好 helper");
 
     let seen = seen.borrow();
-    assert_eq!(seen.len(), 3);
+    assert_eq!(seen.len(), 4);
     let messages = seen[2]["messages"].as_array().unwrap();
     let failed = &messages[2]["results"][0];
     assert_eq!(failed["is_error"], true);
@@ -93,6 +103,11 @@ fn a_wrong_source_comes_back_as_a_diagnostic_and_a_fixed_one_is_constructed() {
     let built = &messages[4]["results"][0];
     assert_eq!(built["is_error"], false);
     assert_eq!(built["output"], "已构造 helper");
+    let later = seen[3]["messages"].as_array().unwrap();
+    let hint = &later[6]["results"][0];
+    assert_eq!(hint["is_error"], false);
+    let text = hint["output"].as_str().unwrap();
+    assert!(text.contains("要 pack"), "{text}");
 
     // 同一个 Kernel 目录配空录像：任何一次模型调用都会失败，结果只能来自 Journal。
     let empty = temp.root.join("empty.json");

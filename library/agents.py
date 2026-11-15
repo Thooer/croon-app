@@ -22,6 +22,19 @@ def _roots(values: list[str]) -> list[str]:
     return out
 
 
+# 交办方能附带的 Port。instantiate 不在其中：交办出去的 Agent 不能再交办。
+SUPPLIED = ["engine", "exec"]
+
+
+def _unsupplied(interface: Any) -> list[str]:
+    """目标要、交办方给不了的 Port，按名字排序。"""
+    out = []
+    for port in sorted(interface["requires"]):
+        if port not in SUPPLIED:
+            out.append(port)
+    return out
+
+
 def agent_tools(pack: Pack, construct: Construct, infer: Infer, modules: str) -> Any:
     """返回运行中造 Agent 的两个工具，与记着造出来的 Agent 的表：名字到 Definition 与 Interface。"""
     agents = {}
@@ -45,6 +58,9 @@ def agent_tools(pack: Pack, construct: Construct, infer: Infer, modules: str) ->
             unique = f"{name}{n}"
             n += 1
         agents[unique] = {"definition": built["id"], "interface": inferred["interface"]}
+        missing = _unsupplied(inferred["interface"])
+        if missing:
+            return f"已构造 {unique}，但它要 {', '.join(missing)}，交办时接不上：先改源码去掉这些 Port"
         return f"已构造 {unique}"
 
     def describe_agent(name: str) -> Interface:
@@ -73,14 +89,15 @@ def run_agent(instantiate: Instantiate, engine: Generate, exec: Exec, back: Done
         value: 按它 Signature 的 in 写好的输入，先用 describe_agent 看清。
         dependencies: 输入要用到的 Bundle。
     """
+    missing = _unsupplied(made["interface"])
+    if missing:
+        raise RuntimeError(f"目标要 {', '.join(missing)}，交办的一方接不上")
     attach = {}
     for port in made["interface"]["requires"]:
         if port == "engine":
             attach[port] = engine
-        elif port == "exec":
-            attach[port] = exec
         else:
-            raise RuntimeError(f"目标要 {port}，交办的一方没有可接的 Reference")
+            attach[port] = exec
     r = croon.send(instantiate,
                    {"definition": made["definition"],
                     "input": {"value": value, "dependencies": _roots(dependencies)}, "seats": {}, "self": {}},

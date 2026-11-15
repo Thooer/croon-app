@@ -70,4 +70,16 @@
 
 HTTP 适配、推理签名、缓存控制、部分结果和其他协议仍需各自的实际场景确定。当前适配器映射 `model.generate` 的文本消息、函数工具调用和完成状态，不把它声明成所有 Provider 的共同协议。
 
-参考：../Directory/README.md（文件执行）；../Library/Runtime.md（ReAct）。
+## 录制与回放
+
+录制器与回放器是 `model.generate` 的另外两种宿主实现，把一次真模型运行变成能反复运行的测试。录制器包住任意一个 `model.generate` 的 Port，把每次的请求与结果原样记进录像；回放器只读录像，不连任何 Provider。三者装在同一个恢复身份下，选哪一个是宿主配置的事，Definition 不变。
+
+回放按请求的规范文本严格匹配；同一请求出现多次，按出现的先后对应。查不到或用尽，以宿主故障停下，不改去调真模型。宽松匹配会让改过的提示词悄悄拿到旧结果，测试证明的东西就少于以为的；对不上就重录。
+
+录像只含请求与结果，不含凭据与 endpoint。
+
+## 待定
+
+- 录像的形状 `model.cassette`，随录制器与回放器的实现写进 schema。
+
+参考：../Directory/README.md（文件执行）；../Library/Runtime.md（ReAct）；../Host/README.md（装配）。

@@ -14,6 +14,7 @@ croon-app 是建立在 croon 与 croon-lang0 之上的完整应用：模型适�
 | docs/Plan.md | 范围、生命周期、阶段与验收；全文是打算 |
 | docs/Directory/README.md | Directory 的文件执行服务 |
 | docs/Model/README.md | 模型服务 Port 形状 |
+| docs/Host/README.md | 宿主装配：root entry、binding、客户端 |
 | docs/Library/README.md | Library 总览：原则、地图与生成模块 |
 | docs/Library/Runtime.md | 运行环境、工具调用、交办 |
 | docs/Library/Organization.md | 组织与历史 |
@@ -83,6 +84,6 @@ croon-app 是建立在 croon 与 croon-lang0 之上的完整应用：模型适�
 
 ## 上下游
 
-- 上游：croon（croon-eval、croon-port、croon-tree；Kernel 与 scenarios 只在测试里用）与 croon-lang0。
+- 上游：croon 与 croon-lang0。提供者只依赖 croon-eval、croon-port、croon-tree；Kernel 运行时只由宿主依赖；scenarios 只在测试里用。
 - 下游：无。
 - 本仓库拥有：Model、文件执行、Library 与 `library.*` 生成模块、Application。`library/kernel.py`、`library/model.py`、`library/directory.py` 由 `cargo run -p execution --example generate_library -- library` 产生，不进 Git。

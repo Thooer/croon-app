@@ -8,6 +8,8 @@
 //!   任务或仓库变了是重放分歧。
 //! - 结果只写进一个新的空目录，不碰用户的仓库。
 //! - [`Assembly`] 里给的模型 Port，恢复身份必须是 `<系统名>/model`；故障点只用于测试。
+//! - 有 Instance 被宿主停下时，[`run`] 带着停止原因返回错误，不会一直等；同一个 Kernel 目录
+//!   再跑一次时先重开它们。业务失败是 Journal 里的事实，重跑只重放出同样的失败。
 //!
 //! 参考：docs/Host/README.md（装配、配置、root entry、客户端）。
 
@@ -254,7 +256,20 @@ impl Client<'_> {
             if let Some(result) = self.kernel.submit(&self.conn, atom)? {
                 return Ok(result);
             }
-            if !self.kernel.run()? {
+            let progress = self.kernel.run()?;
+            // 被宿主停下的 Instance 要修好宿主、重开之后才会再走：这次运行跑不完，不再等。
+            let stopped = self.kernel.stopped();
+            if !stopped.is_empty() {
+                let reasons: Vec<String> = stopped
+                    .iter()
+                    .map(|(instance, reason)| format!("{instance}：{}", reason.trim()))
+                    .collect();
+                return Err(Error(format!(
+                    "有 Instance 被宿主停下，这次运行跑不完：{}",
+                    reasons.join("；")
+                )));
+            }
+            if !progress {
                 std::thread::sleep(Duration::from_millis(20));
             }
         }
@@ -354,6 +369,12 @@ pub fn run(
             .map(str::to_owned)
             .ok_or_else(|| Error(format!("root entry 没有接 {port}")))?;
         kernel.bind_host(&handle, provider)?;
+    }
+
+    // 再跑一次就是恢复：重开被宿主停下的 Instance，从 Journal 接着走。
+    let stopped: Vec<String> = kernel.stopped().keys().cloned().collect();
+    for instance in stopped {
+        kernel.reopen(&instance)?;
     }
 
     let conn = kernel.connect(&root)?;

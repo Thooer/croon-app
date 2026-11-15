@@ -29,16 +29,17 @@ croon-app 拥有模型适配、Directory 与 Docker 文件执行、Library 与 A
 - **恢复**：每个提交点前后停下，重跑结果与记录序列相同（`recovery`）；exec 在途时 SIGKILL，旧 attempt 退役、新 attempt 重做（`kill`）；宿主故障时客户端带原因退出，修好后重跑重开接着走（`failure`）。
 - **场景**：Delegate 场景归本仓库，root 用 host.root，预期由 CPython 独立求出并逐条核对，见 Library/Scenarios/Delegate.md。
 
-**尚未落地**：exec 的耗时没有实测，每次工具调用都起一整套容器；root entry 只在进程内，没有 socket 与持续对话；W0 还不能在运行中构造新的 Definition；结果只写进新目录，写回用户仓库仍待定。Charter 的实例化在 Kernel 一侧仍一律拒绝，见 croon:docs/Plan.md。
+**尚未落地**：没有上手路径，README 不写怎样建任务镜像、写 host.config、跑 `croon-app run`，`config/` 下也没有模板；需要真 Docker 的测试都标了 ignore，没有统一的跑法与前提说明，其中 `smoke` 会调用真模型。exec 的耗时没有实测，每次工具调用都起一整套容器；root entry 只在进程内，没有 socket 与持续对话；W0 还不能在运行中构造新的 Definition；结果只写进新目录，写回用户仓库仍待定。
 
 ## 下一步
 
 顺序是推断，前一步的结果会改变后一步。
 
-1. **实测 exec**：用真模型跑几个真实任务，量每次工具调用的耗时与一个任务里 exec 的次数，再决定容器池、增量物化这类优化要不要做、做哪一种。
-2. **持续对话**：经 socket 的 root entry，根能对运行中的 W0 连发几句、软打断与硬打断；场景见 croon:docs/Kernel/README.md 的「W0 持续对话」。
-3. **制造闭环**：W0 运行中构造另一份 Definition 再实例化，代码依赖取自自己 Definition 的完整 Bundle；判据见「制造闭环」。
-4. **写回仓库**：以导入时的目录 Bundle 为基准把结果并回用户仓库，冲突时报告；见 Library/Organization.md 的待定。
+1. **上手路径**：README 加「运行」一节，写建镜像（含换源参数）、host.config 与 `croon-app run`；提交 `config/` 下的配置模板；写明需要真 Docker 的测试怎样跑、前提是什么、哪些会调用真模型。判据是别人按 README 能跑通一次任务，即阶段 2 的入口。
+2. **实测 exec**：用真模型跑几个真实任务，量每次工具调用的耗时与一个任务里 exec 的次数，再决定容器池、增量物化这类优化要不要做、做哪一种。
+3. **持续对话**：经 socket 的 root entry，根能对运行中的 W0 连发几句、软打断与硬打断；场景见 croon:docs/Kernel/README.md 的「W0 持续对话」。
+4. **制造闭环**：W0 运行中构造另一份 Definition 再实例化，代码依赖取自自己 Definition 的完整 Bundle；判据见「制造闭环」。
+5. **写回仓库**：以导入时的目录 Bundle 为基准把结果并回用户仓库，冲突时报告；见 Library/Organization.md 的待定。
 
 ## 内核分离
 

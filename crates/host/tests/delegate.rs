@@ -34,48 +34,12 @@ fn library_root() -> Temp {
 
 fn fixture() -> (Rc<Scn>, Setup, Temp) {
     let root = library_root();
-    let mut fixture: serde_json::Value =
+    let fixture: serde_json::Value =
         serde_json::from_str(include_str!("../schema/library.scenario.delegate.json")).unwrap();
     let mut all = scenario::all();
     all.push(("library.scenario.delegate", fixture.clone()));
-    let mut values = scenario::values(&all);
-    // The shared reconnect root uses deliberately broad fake-provider specs.
-    // Adapt only its test Definition to the app-owned full Port specs so the
-    // same References can flow into real Lang0 child instances.
-    //
-    // 这一段依赖 croon 的 scenario.reconnect 里 root 的形状。它变了就让测试直接说出来，
-    // 而不是在后面某个毫不相干的断言上失败。
-    {
-        let mut ports: Vec<_> = values["sha256:droot"]["$bundle"]["interface"]["requires"]
-            .as_object()
-            .expect("croon 的共享 root 应当有 requires")
-            .keys()
-            .cloned()
-            .collect();
-        ports.sort();
-        assert_eq!(
-            ports,
-            ["asks", "back", "construct", "engine", "exec", "instantiate"],
-            "croon 的 scenario.reconnect 改了共享 root 的接口，本测试的适配要跟着改"
-        );
-    }
-    for port in ["engine", "exec"] {
-        let spec = values["sha256:ls"]["$bundle"]["interface"]["requires"][port].clone();
-        values
-            .get_mut("sha256:droot")
-            .unwrap()
-            .get_mut("$bundle")
-            .unwrap()
-            .get_mut("interface")
-            .unwrap()
-            .get_mut("requires")
-            .unwrap()
-            .as_object_mut()
-            .unwrap()
-            .insert(port.into(), spec.clone());
-        fixture["journals"]["i-root"][0]["what"]["birth"]["binding"]["sources"][port]["spec"] =
-            spec;
-    }
+    // root entry 用 app 自己的 host.root（场景里的 sha256:lroot），不借 croon 共享场景的 root。
+    let values = scenario::values(&all);
     let setup = Setup::new(&root.0, &values, || {
         vec![Box::new(Lang0) as Box<dyn Language>]
     });

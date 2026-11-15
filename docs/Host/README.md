@@ -134,7 +134,7 @@ Required port 在诞生时写定，运行中再接新东西是 Kernel 的待定�
 ## 待定
 
 - 写回用户已有的仓库：以导入时的目录 Bundle 为基准三方合并，还是拒绝并报告；见 Library/Organization.md 的待定「root entry 与磁盘上的仓库」。没有场景。
-- 经 socket 连上的 root entry 与持续对话，见 Plan.md 的「运行闭环」。场景：W0 持续对话。
+- 经 socket 连上的 root entry 与持续对话，见 Plan.md 的「下一步」。场景：W0 持续对话。
 - 多个模型槽位。场景：异质检验。
 
 参考：../Model/README.md（宿主适配、录制与回放）；../Directory/README.md（导入、物化）；../Library/Presets.md（W0）。

@@ -1,10 +1,10 @@
 //! Delegate 场景：预期见 docs/Library/Scenarios/Delegate.md。Library 先生成进临时根目录，
 //! 生成模块不进 Git，`$tree: library` 扫到的仍是真实检出提供的那些文件。
 
-use kernel::host::Language;
+use kernel::host::{Channel, Language};
 use lang0::Lang0;
 use scenarios::{
-    drive::Setup,
+    drive::{ProviderRole, Setup},
     scenario::{self, Scn},
 };
 use serde_json::json;
@@ -40,9 +40,16 @@ fn fixture() -> (Rc<Scn>, Setup, Temp) {
     all.push(("library.scenario.delegate", fixture.clone()));
     // root entry 用 app 自己的 host.root（场景里的 sha256:lroot），不借 croon 共享场景的 root。
     let values = scenario::values(&all);
-    let setup = Setup::new(&root.0, &values, || {
+    let mut setup = Setup::new(&root.0, &values, || {
         vec![Box::new(Lang0) as Box<dyn Language>]
     });
+    // host.root 多接了 definition.infer：它是无世界效果的宿主 Port，场景里只占一个假身份。
+    setup
+        .channels
+        .insert("fake-infer".into(), Channel::Discardable);
+    setup
+        .provider_roles
+        .insert("fake-infer".into(), ProviderRole::Provider);
     (
         Rc::new(Scn::of("library.scenario.delegate", &fixture)),
         setup,

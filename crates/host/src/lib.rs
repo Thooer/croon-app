@@ -319,6 +319,7 @@ pub fn run(
         None => settings.model_port()?,
     };
     let exec: Rc<dyn Port> = Rc::new(directory::Docker::new(settings.directory.clone())?);
+    let inferrer: Rc<dyn Port> = Rc::new(infer::Infer::new(format!("{}/infer", settings.system)));
     let mut kernel = Kernel::open(
         &settings.kernel,
         KernelConfig {
@@ -355,6 +356,10 @@ pub fn run(
                 "exec".into(),
                 json!({"host": exec.id(), "spec": requires["exec"]}),
             );
+            sources.insert(
+                "infer".into(),
+                json!({"host": inferrer.id(), "spec": requires["infer"]}),
+            );
             let input = json!({"value": null, "dependencies": sorted(vec![w0.clone(), s.clone(), snapshot.clone()])});
             kernel.create_root(
                 &bundle,
@@ -364,7 +369,7 @@ pub fn run(
             )?
         }
     };
-    for (port, provider) in [("engine", model), ("exec", exec)] {
+    for (port, provider) in [("engine", model), ("exec", exec), ("infer", inferrer)] {
         let handle = kernel.index().journals[root.as_str()].birth()["wire"][port]
             .as_str()
             .map(str::to_owned)

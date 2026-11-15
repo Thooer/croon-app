@@ -2405,6 +2405,60 @@
                 }
               }
             },
+            "infer": {
+              "description": "从 Definition 草稿的 body 推出 Interface；纯计算，不建立构造事实",
+              "in": {
+                "type": "object",
+                "properties": {
+                  "language": {
+                    "enum": [
+                      "lang0@1"
+                    ]
+                  },
+                  "body": {
+                    "type": "object",
+                    "properties": {
+                      "source": {
+                        "type": "string"
+                      },
+                      "modules": {
+                        "type": "string",
+                        "description": "模块目录的 Tree ID，要在本次交付的依赖里"
+                      }
+                    },
+                    "required": [
+                      "source"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "required": [
+                  "language",
+                  "body"
+                ],
+                "additionalProperties": false
+              },
+              "attach": {
+                "additionalProperties": false
+              },
+              "out": {
+                "value": {
+                  "type": "object",
+                  "properties": {
+                    "interface": {
+                      "type": "object"
+                    }
+                  },
+                  "required": [
+                    "interface"
+                  ],
+                  "additionalProperties": false
+                },
+                "attach": {
+                  "additionalProperties": false
+                }
+              }
+            },
             "back": {
               "description": "收结束状态",
               "in": {
@@ -2510,6 +2564,7 @@
               "instantiate": "h-rinst",
               "engine": "h-rengine",
               "exec": "h-rexec",
+              "infer": "h-rinfer",
               "back": "h-rback"
             },
             "self": {
@@ -3083,6 +3138,63 @@
                           "timed_out",
                           "truncated",
                           "snapshot"
+                        ],
+                        "additionalProperties": false
+                      },
+                      "attach": {
+                        "additionalProperties": false
+                      }
+                    }
+                  }
+                },
+                "infer": {
+                  "host": "fake-infer",
+                  "spec": {
+                    "description": "从 Definition 草稿的 body 推出 Interface；纯计算，不建立构造事实",
+                    "in": {
+                      "type": "object",
+                      "properties": {
+                        "language": {
+                          "enum": [
+                            "lang0@1"
+                          ]
+                        },
+                        "body": {
+                          "type": "object",
+                          "properties": {
+                            "source": {
+                              "type": "string"
+                            },
+                            "modules": {
+                              "type": "string",
+                              "description": "模块目录的 Tree ID，要在本次交付的依赖里"
+                            }
+                          },
+                          "required": [
+                            "source"
+                          ],
+                          "additionalProperties": false
+                        }
+                      },
+                      "required": [
+                        "language",
+                        "body"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "attach": {
+                      "additionalProperties": false
+                    },
+                    "out": {
+                      "value": {
+                        "type": "object",
+                        "properties": {
+                          "interface": {
+                            "type": "object"
+                          }
+                        },
+                        "required": [
+                          "interface"
                         ],
                         "additionalProperties": false
                       },

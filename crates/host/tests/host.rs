@@ -2,109 +2,19 @@
 //! 同一个 Kernel 目录再跑一次、模型换成空录像，仍得到同样的结果：结果来自 Journal，不再请求模型。
 //! 参考：docs/Host/README.md（装配、客户端）；docs/Model/README.md（录制与回放）。
 
+mod support;
+
 use serde_json::{Value as Json, json};
 use std::fs;
-use std::path::{Path, PathBuf};
-use std::process::Command;
+use support::{Temp, llm};
 
 const SCENARIO: &str = include_str!("../schema/library.scenario.delegate.json");
-
-struct Temp {
-    root: PathBuf,
-    system: String,
-}
-
-impl Temp {
-    fn new() -> Self {
-        let unique = format!(
-            "{}-{}",
-            std::process::id(),
-            std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .unwrap()
-                .as_nanos()
-        );
-        let root = std::env::temp_dir().join(format!("croon-host-test-{unique}"));
-        fs::create_dir(&root).unwrap();
-        Self {
-            root,
-            system: format!("host-test-{unique}"),
-        }
-    }
-}
-
-impl Drop for Temp {
-    fn drop(&mut self) {
-        // 只清这个系统的容器：前缀由恢复身份派生，与 directory 的命名一致。
-        let identity = format!("{}/directory", self.system);
-        let prefix = format!(
-            "croon-exec-{}",
-            croon_eval::value::ValueId::of_bytes(identity.as_bytes()).hex()
-        );
-        if let Ok(out) = Command::new("/usr/bin/docker")
-            .args([
-                "ps",
-                "-aq",
-                "--filter",
-                &format!("label=croon.provider={prefix}"),
-            ])
-            .output()
-        {
-            for id in String::from_utf8_lossy(&out.stdout).lines() {
-                let _ = Command::new("/usr/bin/docker")
-                    .args(["rm", "-f", id])
-                    .output();
-            }
-        }
-        let _ = fs::remove_dir_all(&self.root);
-    }
-}
-
-fn llm(text: &str, calls: Json) -> Json {
-    let finish = if calls.as_array().is_some_and(|c| c.is_empty()) {
-        "stop"
-    } else {
-        "tool_calls"
-    };
-    json!({"ok": true, "value": {"text": text, "reasoning": null, "calls": calls, "finish": finish,
-        "usage": {"input": 1, "output": 1}}, "dependencies": []})
-}
-
-fn config(temp: &Temp, cassette: &Path) -> PathBuf {
-    let path = temp.root.join(format!(
-        "config-{}.json",
-        cassette.file_stem().unwrap().to_string_lossy()
-    ));
-    let value = json!({
-        "system": temp.system,
-        "kernel": temp.root.join("kernel"),
-        "model": {"replay": cassette},
-        "directory": {
-            "state": temp.root.join("state"),
-            "docker": "/usr/bin/docker",
-            "python": "/usr/bin/python3",
-            "image": "croon-work:1",
-            "collector_image": "python:3.12-slim",
-            "platform": "linux/amd64",
-            "cpus": "0.5",
-            "memory_bytes": 268435456,
-            "work_bytes": 16777216,
-            "temporary_bytes": 4194304,
-            "pids": 64,
-            "output_bytes": 65536,
-            "nodes": 10000,
-            "archive_bytes": 33554432,
-            "cleanup_timeout_seconds": 30
-        }
-    });
-    fs::write(&path, serde_json::to_vec_pretty(&value).unwrap()).unwrap();
-    path
-}
 
 #[test]
 #[ignore = "requires local Docker with croon-work:1 and python:3.12-slim"]
 fn w0_runs_with_a_replayed_model_and_real_docker_and_recovers_from_the_journal() {
     let temp = Temp::new();
+    let system = temp.system("w0");
     let repo = temp.root.join("repo");
     fs::create_dir(&repo).unwrap();
     fs::write(repo.join("a.py"), "broken\n").unwrap();
@@ -133,7 +43,7 @@ fn w0_runs_with_a_replayed_model_and_real_docker_and_recovers_from_the_journal()
     )
     .unwrap();
 
-    let settings = host::Settings::load(&config(&temp, &cassette)).unwrap();
+    let settings = host::Settings::load(&temp.config(&system, &cassette)).unwrap();
     let out1 = temp.root.join("out1");
     let first = host::run(&settings, host::Assembly::default(), &repo, task, &out1).unwrap();
     assert_eq!(first.summary, "改好了 a.py");
@@ -147,7 +57,7 @@ fn w0_runs_with_a_replayed_model_and_real_docker_and_recovers_from_the_journal()
     // 同一个 Kernel 目录再跑：空录像下任何一次模型调用都会失败，所以结果只能来自 Journal。
     let empty = temp.root.join("empty.json");
     fs::write(&empty, "{\"entries\":[]}").unwrap();
-    let settings = host::Settings::load(&config(&temp, &empty)).unwrap();
+    let settings = host::Settings::load(&temp.config(&system, &empty)).unwrap();
     let out2 = temp.root.join("out2");
     let second = host::run(&settings, host::Assembly::default(), &repo, task, &out2).unwrap();
     assert_eq!(second.snapshot, first.snapshot);

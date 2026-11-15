@@ -12,6 +12,13 @@ pub static BLOCKS: &[Block] = &[
         line: 0,
     },
     Block {
+        name: "model.cassette",
+        lang: "json",
+        text: include_str!("../schema/model.cassette.json"),
+        file: "crates/model/schema/model.cassette.json",
+        line: 0,
+    },
+    Block {
         name: "model.provider",
         lang: "json",
         text: include_str!("../schema/model.provider.json"),

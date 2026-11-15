@@ -1,0 +1,254 @@
+{
+  "description": "录下的 model.generate：每条一个请求与它的结果，按录制的先后",
+  "type": "object",
+  "properties": {
+    "entries": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "request": {
+            "type": "object",
+            "properties": {
+              "system": {
+                "type": "string"
+              },
+              "messages": {
+                "type": "array",
+                "items": {
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "role": {
+                          "enum": [
+                            "user"
+                          ]
+                        },
+                        "text": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "role",
+                        "text"
+                      ],
+                      "additionalProperties": false
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "role": {
+                          "enum": [
+                            "assistant"
+                          ]
+                        },
+                        "text": {
+                          "type": "string"
+                        },
+                        "reasoning": {
+                          "anyOf": [
+                            {
+                              "type": "string"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "calls": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string"
+                              },
+                              "name": {
+                                "type": "string"
+                              },
+                              "input": {}
+                            },
+                            "required": [
+                              "id",
+                              "name",
+                              "input"
+                            ],
+                            "additionalProperties": false
+                          }
+                        }
+                      },
+                      "required": [
+                        "role",
+                        "text",
+                        "reasoning",
+                        "calls"
+                      ],
+                      "additionalProperties": false
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "role": {
+                          "enum": [
+                            "tool"
+                          ]
+                        },
+                        "results": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string"
+                              },
+                              "name": {
+                                "type": "string"
+                              },
+                              "output": {},
+                              "is_error": {
+                                "type": "boolean"
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "name",
+                              "output",
+                              "is_error"
+                            ],
+                            "additionalProperties": false
+                          }
+                        }
+                      },
+                      "required": [
+                        "role",
+                        "results"
+                      ],
+                      "additionalProperties": false
+                    }
+                  ]
+                }
+              },
+              "tools": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "name": {
+                      "type": "string"
+                    },
+                    "description": {
+                      "type": "string"
+                    },
+                    "input": {
+                      "type": "object"
+                    }
+                  },
+                  "required": [
+                    "name",
+                    "description",
+                    "input"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "max_output_tokens": {
+                "type": "integer"
+              },
+              "timeout": {
+                "type": "integer"
+              }
+            },
+            "required": [
+              "system",
+              "messages",
+              "tools"
+            ],
+            "additionalProperties": false
+          },
+          "outcome": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "ok": {
+                    "enum": [
+                      true
+                    ]
+                  },
+                  "value": {},
+                  "dependencies": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "description": "Bundle ID"
+                    },
+                    "description": "显式依赖根的集合；ID 排序、无重复"
+                  }
+                },
+                "required": [
+                  "ok",
+                  "value",
+                  "dependencies"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "ok": {
+                    "enum": [
+                      false
+                    ]
+                  },
+                  "error": {
+                    "type": "object",
+                    "properties": {
+                      "kind": {
+                        "type": "string",
+                        "description": "契约层的 use、denied、type、terminated，或 Language 定义的"
+                      },
+                      "message": {
+                        "type": "string"
+                      },
+                      "data": {}
+                    },
+                    "required": [
+                      "kind",
+                      "message",
+                      "data"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "dependencies": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "description": "Bundle ID"
+                    },
+                    "description": "显式依赖根的集合；ID 排序、无重复"
+                  }
+                },
+                "required": [
+                  "ok",
+                  "error",
+                  "dependencies"
+                ],
+                "additionalProperties": false
+              }
+            ]
+          }
+        },
+        "required": [
+          "request",
+          "outcome"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": [
+    "entries"
+  ],
+  "additionalProperties": false
+}

@@ -74,12 +74,31 @@ HTTP 适配、推理签名、缓存控制、部分结果和其他协议仍需各
 
 录制器与回放器是 `model.generate` 的另外两种宿主实现，把一次真模型运行变成能反复运行的测试。录制器包住任意一个 `model.generate` 的 Port，把每次的请求与结果原样记进录像；回放器只读录像，不连任何 Provider。三者装在同一个恢复身份下，选哪一个是宿主配置的事，Definition 不变。
 
-回放按请求的规范文本严格匹配；同一请求出现多次，按出现的先后对应。查不到或用尽，以宿主故障停下，不改去调真模型。宽松匹配会让改过的提示词悄悄拿到旧结果，测试证明的东西就少于以为的；对不上就重录。
+回放按请求的规范文本严格匹配，条目按逻辑行动领用：一个逻辑行动（Instance 与键）第一次请求某段文本时，领走这段文本下一条未用的条目；同一行动重做时，仍拿它领过的那一条。所以崩溃后的重做不会错位；录制时因重做多录下的条目在回放中用不到，不算错。录像不记 Instance 与键：它们随系统的密钥变化。查不到或用尽，以宿主故障停下，不改去调真模型。宽松匹配会让改过的提示词悄悄拿到旧结果，测试证明的东西就少于以为的；对不上就重录。
 
-录像只含请求与结果，不含凭据与 endpoint。
+录像只含请求与结果，不含凭据与 endpoint。录制器只录完成的结果：Provider 报错是宿主故障，不进录像。
 
-## 待定
-
-- 录像的形状 `model.cassette`，随录制器与回放器的实现写进 schema。
+```json model.cassette
+{
+  "description": "录下的 model.generate：每条一个请求与它的结果，按录制的先后",
+  "type": "object",
+  "properties": {
+    "entries": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "request": {"$block": "model.generate#/in"},
+          "outcome": {"$block": "definition.outcome"}
+        },
+        "required": ["request", "outcome"],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": ["entries"],
+  "additionalProperties": false
+}
+```
 
 参考：../Directory/README.md（文件执行）；../Library/Runtime.md（ReAct）；../Host/README.md（装配）。

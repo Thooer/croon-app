@@ -2,6 +2,9 @@
 //! 参考：docs/Model/README.md（宿主适配）。
 
 mod blocks;
+mod cassette;
+
+pub use cassette::{Recorder, Replayer};
 
 pub fn schema(name: &str) -> serde_json::Value {
     blocks::json(name)
@@ -431,7 +434,7 @@ fn host(error: impl std::fmt::Display) -> HostError {
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use super::*;
     use croon_port::store::{Budgets, Content, ContentStore, Scope};
     use std::io::{Read, Write};
@@ -439,7 +442,10 @@ mod tests {
     use std::rc::Rc;
     use std::thread;
 
-    fn fixture(response: Json, delay: Duration) -> (String, thread::JoinHandle<(Json, String)>) {
+    pub(crate) fn fixture(
+        response: Json,
+        delay: Duration,
+    ) -> (String, thread::JoinHandle<(Json, String)>) {
         let listener = TcpListener::bind("127.0.0.1:0").unwrap();
         let address = listener.local_addr().unwrap();
         let server = thread::spawn(move || {
@@ -477,7 +483,7 @@ mod tests {
         (format!("http://{address}"), server)
     }
 
-    fn config(base_url: String, timeout: Duration) -> OpenAiCompatible {
+    pub(crate) fn config(base_url: String, timeout: Duration) -> OpenAiCompatible {
         OpenAiCompatible {
             identity: "fixture-model".into(),
             base_url,
@@ -502,7 +508,7 @@ mod tests {
         }
     }
 
-    fn content() -> Rc<ContentStore> {
+    pub(crate) fn content() -> Rc<ContentStore> {
         let path = std::env::temp_dir().join(format!(
             "model-fixture-content-{}-{}",
             std::process::id(),
@@ -511,7 +517,7 @@ mod tests {
         Rc::new(ContentStore::open(path).unwrap())
     }
 
-    fn content_scope(store: Rc<ContentStore>) -> Rc<Content> {
+    pub(crate) fn content_scope(store: Rc<ContentStore>) -> Rc<Content> {
         Rc::new(
             Content::new(
                 store,

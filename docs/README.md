@@ -14,7 +14,7 @@
 
 依赖方向为：croon 是 Kernel 基座，croon-lang0 提供第一种 Language，croon-app 组合 Kernel、Language 与模型和文件执行服务。三个仓库并排放置，path 依赖方向为 croon ← croon-lang0 ← croon-app。
 
-本仓库只有一个 crate：`crates/execution`。目录与文件执行的代码在它里面，不再单独成 crate。
+本仓库有三个 crate：`crates/directory` 承担 Directory，`crates/model` 承担 Model 的宿主适配，`crates/host` 承担宿主装配与 Library 生成模块。两个提供者 crate 只依赖 croon 的公开契约，互不依赖；只有 host 依赖 Kernel 运行时。
 
 ## 地图
 

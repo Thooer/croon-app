@@ -2,9 +2,6 @@
 //! This keeps generated modules out of Git while letting `$tree: library` scan the
 //! exact files that a real app checkout supplies.
 
-#[path = "../examples/generate_library.rs"]
-mod generator;
-
 use kernel::host::Language;
 use lang0::Lang0;
 use scenarios::{
@@ -42,7 +39,7 @@ fn library_root() -> Temp {
         )
         .unwrap();
     }
-    generator::generate(root.join("library"));
+    host::library::generate(root.join("library"));
     Temp(root)
 }
 

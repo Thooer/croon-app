@@ -86,4 +86,4 @@ croon-app 是建立在 croon 与 croon-lang0 之上的完整应用：模型适�
 
 - 上游：croon 与 croon-lang0。提供者只依赖 croon-eval、croon-port、croon-tree；Kernel 运行时只由宿主依赖；scenarios 只在测试里用。
 - 下游：无。
-- 本仓库拥有：Model、文件执行、Library 与 `library.*` 生成模块、Application。`library/kernel.py`、`library/model.py`、`library/directory.py` 由 `cargo run -p execution --example generate_library -- library` 产生，不进 Git。
+- 本仓库拥有：Model、文件执行、Library 与 `library.*` 生成模块、Application。`library/kernel.py`、`library/model.py`、`library/directory.py` 由 `cargo run -p host --example generate_library -- library` 产生，不进 Git。

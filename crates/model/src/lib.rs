@@ -1,5 +1,12 @@
-//! Configurable OpenAI Chat Completions adapter for the `model.generate` Port.
-use crate::schema;
+//! `model.generate` 的宿主适配：按 `model.provider` 配置的 OpenAI Chat Completions 实现。
+//! 参考：docs/Model/README.md（宿主适配）。
+
+mod blocks;
+
+pub fn schema(name: &str) -> serde_json::Value {
+    blocks::json(name)
+}
+
 use croon_port::host::{Call, Channel, Execution, HostDone, HostError, Port};
 use serde_json::{Value as Json, json};
 use std::collections::BTreeMap;

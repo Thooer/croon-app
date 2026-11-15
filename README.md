@@ -4,7 +4,10 @@
 
 ## 内容
 
-- `crates/execution/`：Linux/Docker 隔离执行、产物收集和恢复，以及 Directory 的文件执行 Port。
+- `crates/directory/`：Linux 导入与物化、Docker 隔离执行、产物收集和恢复，即 Directory 的文件执行 Port。
+- `crates/model/`：`model.generate` 的宿主适配。
+- `crates/host/`：根在系统外的装配、Library 生成模块与端到端测试。
+- `docs/Host/`：宿主装配。
 - `library/`：ReAct、文件工具、交办和预置 Application 使用的 Lang0 模块。
 - `docs/Directory/`：目录与文件执行。
 - `docs/Model/`：模型服务 Port。

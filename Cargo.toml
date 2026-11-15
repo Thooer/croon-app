@@ -1,7 +1,9 @@
 [workspace]
 resolver = "3"
 members = [
-    "crates/execution",
+    "crates/directory",
+    "crates/model",
+    "crates/host",
 ]
 
 [workspace.package]
@@ -16,7 +18,9 @@ croon-port = { path = "../croon/crates/port" }
 croon-tree = { path = "../croon/crates/tree" }
 lang0 = { path = "../croon-lang0/crates/lang0" }
 scenarios = { path = "../croon/crates/scenarios" }
-kernel = { path = "../croon/crates/kernel", default-features = false }
+kernel = { path = "../croon/crates/kernel" }
+directory = { path = "crates/directory" }
+model = { path = "crates/model" }
 serde_json = { version = "1", default-features = false, features = ["std", "float_roundtrip"] }
 libc = { version = "=0.2.191", default-features = false }
 

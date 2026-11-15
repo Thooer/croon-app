@@ -1,6 +1,3 @@
-#[path = "../examples/generate_library.rs"]
-mod generator;
-
 use std::fs;
 
 #[test]
@@ -14,7 +11,7 @@ fn generates_all_library_modules_and_declarations() {
             .as_nanos()
     ));
     fs::create_dir_all(&root).unwrap();
-    generator::generate(&root);
+    host::library::generate(&root);
     let kernel = fs::read_to_string(root.join("kernel.py")).unwrap();
     let model = fs::read_to_string(root.join("model.py")).unwrap();
     let directory = fs::read_to_string(root.join("directory.py")).unwrap();

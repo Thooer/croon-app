@@ -48,7 +48,7 @@
 
 ## 宿主适配
 
-`model.generate` 是 Library 与 Kernel 之间稳定使用的 Port 形状；网络协议和凭据属于宿主适配器。`execution` 提供 OpenAI Chat Completions 协议适配器，读取符合 `model.provider` 的配置文件后构造宿主 Port，再按 root binding 的恢复身份装入 Kernel。Definition 只声明 `model.generate`，不包含 endpoint、模型账户或 API key。其他协议应实现同一 Port，不改变 Library 的 Definition。
+`model.generate` 是 Library 与 Kernel 之间稳定使用的 Port 形状；网络协议和凭据属于宿主适配器。`model` crate 提供 OpenAI Chat Completions 协议适配器，读取符合 `model.provider` 的配置文件后构造宿主 Port，再按 root binding 的恢复身份装入 Kernel。Definition 只声明 `model.generate`，不包含 endpoint、模型账户或 API key。其他协议应实现同一 Port，不改变 Library 的 Definition。
 
 ```json model.provider
 {

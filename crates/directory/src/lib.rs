@@ -5,7 +5,6 @@ mod collect;
 mod fd;
 mod filesystem;
 mod launch;
-pub mod model;
 mod process;
 mod state;
 #[cfg(test)]

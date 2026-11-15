@@ -46,7 +46,7 @@ pub fn install(output: impl AsRef<Path>) {
     generate(output);
 }
 
-/// 把 kernel.py、model.py、directory.py 写进 `output`。
+/// 把 kernel.py、model.py、directory.py、infer.py 写进 `output`。
 pub fn generate(output: impl AsRef<Path>) {
     let output = output.as_ref();
     fs::create_dir_all(output).unwrap();
@@ -82,6 +82,8 @@ pub fn generate(output: impl AsRef<Path>) {
     fs::write(output.join("model.py"), model).unwrap();
     let directory = port_module("Exec", directory::schema("directory.exec"));
     fs::write(output.join("directory.py"), directory).unwrap();
+    let infer = port_module("Infer", crate::schema("definition.infer"));
+    fs::write(output.join("infer.py"), infer).unwrap();
 }
 
 fn port_module(name: &'static str, spec: Json) -> String {

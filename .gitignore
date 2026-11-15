@@ -2,4 +2,5 @@ target/
 /library/kernel.py
 /library/model.py
 /library/directory.py
+/library/infer.py
 /config/agent-provider.json

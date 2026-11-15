@@ -15,6 +15,7 @@ fn generates_all_library_modules_and_declarations() {
     let kernel = fs::read_to_string(root.join("kernel.py")).unwrap();
     let model = fs::read_to_string(root.join("model.py")).unwrap();
     let directory = fs::read_to_string(root.join("directory.py")).unwrap();
+    let infer = fs::read_to_string(root.join("infer.py")).unwrap();
     assert!(kernel.contains("Outcome = Schema("));
     for name in [
         "Pack",
@@ -32,5 +33,6 @@ fn generates_all_library_modules_and_declarations() {
     }
     assert!(model.contains("Generate = Port("));
     assert!(directory.contains("Exec = Port("));
+    assert!(infer.contains("Infer = Port("));
     fs::remove_dir_all(root).unwrap();
 }

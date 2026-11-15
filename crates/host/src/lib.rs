@@ -412,7 +412,7 @@ pub fn run(
             "self": {"back": "port/done"}
         }),
         vec![w0.clone(), s.clone(), snapshot.clone()],
-        json!({"engine": {"port": "engine"}, "exec": {"port": "exec"}, "instantiate": {"port": "instantiate"}}),
+        json!({"engine": {"port": "engine"}, "exec": {"port": "exec"}, "instantiate": {"port": "instantiate"}, "pack": {"port": "pack"}, "construct": {"port": "construct"}, "infer": {"port": "infer"}}),
     )?;
     let notify = spawned["attach"]["notify"]["handle"]
         .as_str()

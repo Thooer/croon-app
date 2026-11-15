@@ -74,14 +74,14 @@ SCRIPTS = {
             "5": llm("", [{"id": "c2", "name": "merge", "input": {"name": "fix"}}]),
             "6": llm("已修好 a.py", [])},
            {"task": "修好 a.py", "worker": "sha256:ls", "snapshot": "sha256:lrepo"},
-           {"engine": "port", "exec": "port", "instantiate": "port", "back": "port"}, {"done": "inbox"}),
+           {"engine": "port", "exec": "port", "instantiate": "port", "pack": "port", "construct": "port", "infer": "port", "back": "port"}, {"done": "inbox"}),
 }
 
 out = {}
 for name, (results, inp, refs, inboxes) in SCRIPTS.items():
     source = (work / "library" / f"{name}.py").read_text()
     iface = croon.interface(source, loader)
-    croon.DRIVER = croon.Driver(results)
+    croon.DRIVER = croon.Driver(results, birth={"definition": {"body": {"modules": "sha256:lrepo"}}, "seat": None, "roster": None})
     mod = importlib.import_module(f"library.{name}")
     args = dict(inp)
     for k in refs:

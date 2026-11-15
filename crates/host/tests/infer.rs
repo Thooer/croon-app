@@ -104,7 +104,15 @@ fn modules_in_the_delivery_are_readable_and_the_w0_source_infers() {
     let _ = std::fs::remove_dir_all(&root);
     assert_eq!(out["ok"], true, "{out}");
     let requires = &out["value"]["interface"]["requires"];
-    for port in ["engine", "exec", "instantiate", "back"] {
+    for port in [
+        "engine",
+        "exec",
+        "instantiate",
+        "pack",
+        "construct",
+        "infer",
+        "back",
+    ] {
         assert!(
             !requires[port].is_null(),
             "W0 的 Interface 缺 {port}：{requires}"

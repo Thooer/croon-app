@@ -432,110 +432,73 @@
         "language": "lang0@1",
         "interface": {
           "description": "改仓库里的代码，必要时交办给 worker。",
-          "signature": {
-            "in": {
-              "type": "object",
-              "properties": {
-                "task": {
-                  "type": "string",
-                  "description": "要做的事。"
-                },
-                "worker": {
-                  "type": "string",
-                  "description": "交办时实例化的 Definition 的 ID。"
-                },
-                "snapshot": {
-                  "type": "string"
-                }
-              },
-              "required": [
-                "task",
-                "worker",
-                "snapshot"
-              ],
-              "additionalProperties": false
-            },
-            "out": {
-              "type": "object",
-              "properties": {
-                "summary": {
-                  "type": "string"
-                },
-                "snapshot": {
-                  "type": "string"
-                }
-              },
-              "required": [
-                "summary",
-                "snapshot"
-              ],
-              "additionalProperties": false
-            }
-          },
           "provides": {
             "done": {
+              "attach": {
+                "additionalProperties": false
+              },
               "description": "收结束状态",
               "in": {
                 "anyOf": [
                   {
-                    "type": "object",
+                    "additionalProperties": false,
                     "properties": {
+                      "dependencies": {
+                        "description": "显式依赖根的集合；ID 排序、无重复",
+                        "items": {
+                          "description": "Bundle ID",
+                          "type": "string"
+                        },
+                        "type": "array"
+                      },
                       "ok": {
                         "enum": [
                           true
                         ]
                       },
-                      "value": {},
-                      "dependencies": {
-                        "type": "array",
-                        "items": {
-                          "type": "string",
-                          "description": "Bundle ID"
-                        },
-                        "description": "显式依赖根的集合；ID 排序、无重复"
-                      }
+                      "value": {}
                     },
                     "required": [
                       "ok",
                       "value",
                       "dependencies"
                     ],
-                    "additionalProperties": false
+                    "type": "object"
                   },
                   {
-                    "type": "object",
+                    "additionalProperties": false,
                     "properties": {
-                      "ok": {
-                        "enum": [
-                          false
-                        ]
+                      "dependencies": {
+                        "description": "显式依赖根的集合；ID 排序、无重复",
+                        "items": {
+                          "description": "Bundle ID",
+                          "type": "string"
+                        },
+                        "type": "array"
                       },
                       "error": {
-                        "type": "object",
+                        "additionalProperties": false,
                         "properties": {
+                          "data": {},
                           "kind": {
-                            "type": "string",
-                            "description": "契约层的 use、denied、type、terminated，或 Language 定义的"
+                            "description": "契约层的 use、denied、type、terminated，或 Language 定义的",
+                            "type": "string"
                           },
                           "message": {
                             "type": "string"
-                          },
-                          "data": {}
+                          }
                         },
                         "required": [
                           "kind",
                           "message",
                           "data"
                         ],
-                        "additionalProperties": false
+                        "type": "object"
                       },
-                      "dependencies": {
-                        "type": "array",
-                        "items": {
-                          "type": "string",
-                          "description": "Bundle ID"
-                        },
-                        "description": "显式依赖根的集合；ID 排序、无重复"
+                      "ok": {
+                        "enum": [
+                          false
+                        ]
                       }
                     },
                     "required": [
@@ -543,89 +506,155 @@
                       "error",
                       "dependencies"
                     ],
-                    "additionalProperties": false
+                    "type": "object"
                   }
                 ]
-              },
-              "attach": {
-                "additionalProperties": false
               }
             }
           },
           "requires": {
-            "engine": {
-              "description": "请求一次模型生成；提供者和模型由这份 Reference 决定",
+            "back": {
+              "attach": {
+                "additionalProperties": false
+              },
+              "description": "收结束状态",
               "in": {
-                "type": "object",
-                "properties": {
-                  "system": {
-                    "type": "string"
-                  },
-                  "messages": {
-                    "type": "array",
-                    "items": {
-                      "$ref": "#/$defs/message"
-                    }
-                  },
-                  "tools": {
-                    "type": "array",
-                    "items": {
-                      "type": "object",
-                      "properties": {
-                        "name": {
+                "anyOf": [
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "dependencies": {
+                        "description": "显式依赖根的集合；ID 排序、无重复",
+                        "items": {
+                          "description": "Bundle ID",
                           "type": "string"
                         },
-                        "description": {
-                          "type": "string"
-                        },
-                        "input": {
-                          "type": "object"
-                        }
+                        "type": "array"
                       },
-                      "required": [
-                        "name",
-                        "description",
-                        "input"
-                      ],
-                      "additionalProperties": false
-                    }
+                      "ok": {
+                        "enum": [
+                          true
+                        ]
+                      },
+                      "value": {}
+                    },
+                    "required": [
+                      "ok",
+                      "value",
+                      "dependencies"
+                    ],
+                    "type": "object"
                   },
-                  "max_output_tokens": {
-                    "type": "integer"
-                  },
-                  "timeout": {
-                    "type": "integer"
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "dependencies": {
+                        "description": "显式依赖根的集合；ID 排序、无重复",
+                        "items": {
+                          "description": "Bundle ID",
+                          "type": "string"
+                        },
+                        "type": "array"
+                      },
+                      "error": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "data": {},
+                          "kind": {
+                            "description": "契约层的 use、denied、type、terminated，或 Language 定义的",
+                            "type": "string"
+                          },
+                          "message": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "kind",
+                          "message",
+                          "data"
+                        ],
+                        "type": "object"
+                      },
+                      "ok": {
+                        "enum": [
+                          false
+                        ]
+                      }
+                    },
+                    "required": [
+                      "ok",
+                      "error",
+                      "dependencies"
+                    ],
+                    "type": "object"
+                  }
+                ]
+              }
+            },
+            "construct": {
+              "attach": {
+                "additionalProperties": false
+              },
+              "description": "检查完整 Definition Bundle；成功事实属于该对象",
+              "in": {
+                "additionalProperties": false,
+                "properties": {
+                  "definition": {
+                    "type": "string"
                   }
                 },
                 "required": [
-                  "system",
-                  "messages",
-                  "tools"
+                  "definition"
                 ],
-                "additionalProperties": false,
+                "type": "object"
+              },
+              "out": {
+                "attach": {
+                  "additionalProperties": false
+                },
+                "value": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "id"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "engine": {
+              "attach": {
+                "additionalProperties": false
+              },
+              "description": "请求一次模型生成；提供者和模型由这份 Reference 决定",
+              "in": {
                 "$defs": {
                   "call": {
-                    "type": "object",
+                    "additionalProperties": false,
                     "properties": {
                       "id": {
                         "type": "string"
                       },
+                      "input": {},
                       "name": {
                         "type": "string"
-                      },
-                      "input": {}
+                      }
                     },
                     "required": [
                       "id",
                       "name",
                       "input"
                     ],
-                    "additionalProperties": false
+                    "type": "object"
                   },
                   "message": {
                     "anyOf": [
                       {
-                        "type": "object",
+                        "additionalProperties": false,
                         "properties": {
                           "role": {
                             "enum": [
@@ -640,18 +669,16 @@
                           "role",
                           "text"
                         ],
-                        "additionalProperties": false
+                        "type": "object"
                       },
                       {
-                        "type": "object",
+                        "additionalProperties": false,
                         "properties": {
-                          "role": {
-                            "enum": [
-                              "assistant"
-                            ]
-                          },
-                          "text": {
-                            "type": "string"
+                          "calls": {
+                            "items": {
+                              "$ref": "#/$defs/call"
+                            },
+                            "type": "array"
                           },
                           "reasoning": {
                             "anyOf": [
@@ -663,11 +690,13 @@
                               }
                             ]
                           },
-                          "calls": {
-                            "type": "array",
-                            "items": {
-                              "$ref": "#/$defs/call"
-                            }
+                          "role": {
+                            "enum": [
+                              "assistant"
+                            ]
+                          },
+                          "text": {
+                            "type": "string"
                           }
                         },
                         "required": [
@@ -676,31 +705,25 @@
                           "reasoning",
                           "calls"
                         ],
-                        "additionalProperties": false
+                        "type": "object"
                       },
                       {
-                        "type": "object",
+                        "additionalProperties": false,
                         "properties": {
-                          "role": {
-                            "enum": [
-                              "tool"
-                            ]
-                          },
                           "results": {
-                            "type": "array",
                             "items": {
-                              "type": "object",
+                              "additionalProperties": false,
                               "properties": {
                                 "id": {
                                   "type": "string"
                                 },
+                                "is_error": {
+                                  "type": "boolean"
+                                },
                                 "name": {
                                   "type": "string"
                                 },
-                                "output": {},
-                                "is_error": {
-                                  "type": "boolean"
-                                }
+                                "output": {}
                               },
                               "required": [
                                 "id",
@@ -708,29 +731,109 @@
                                 "output",
                                 "is_error"
                               ],
-                              "additionalProperties": false
-                            }
+                              "type": "object"
+                            },
+                            "type": "array"
+                          },
+                          "role": {
+                            "enum": [
+                              "tool"
+                            ]
                           }
                         },
                         "required": [
                           "role",
                           "results"
                         ],
-                        "additionalProperties": false
+                        "type": "object"
                       }
                     ]
                   }
-                }
-              },
-              "attach": {
-                "additionalProperties": false
+                },
+                "additionalProperties": false,
+                "properties": {
+                  "max_output_tokens": {
+                    "type": "integer"
+                  },
+                  "messages": {
+                    "items": {
+                      "$ref": "#/$defs/message"
+                    },
+                    "type": "array"
+                  },
+                  "system": {
+                    "type": "string"
+                  },
+                  "timeout": {
+                    "type": "integer"
+                  },
+                  "tools": {
+                    "items": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "description": {
+                          "type": "string"
+                        },
+                        "input": {
+                          "type": "object"
+                        },
+                        "name": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "name",
+                        "description",
+                        "input"
+                      ],
+                      "type": "object"
+                    },
+                    "type": "array"
+                  }
+                },
+                "required": [
+                  "system",
+                  "messages",
+                  "tools"
+                ],
+                "type": "object"
               },
               "out": {
+                "attach": {
+                  "additionalProperties": false
+                },
                 "value": {
-                  "type": "object",
+                  "additionalProperties": false,
                   "properties": {
-                    "text": {
-                      "type": "string"
+                    "calls": {
+                      "items": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "input": {},
+                          "name": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "name",
+                          "input"
+                        ],
+                        "type": "object"
+                      },
+                      "type": "array"
+                    },
+                    "finish": {
+                      "enum": [
+                        "stop",
+                        "length",
+                        "tool_calls",
+                        "content_filter",
+                        "other"
+                      ]
                     },
                     "reasoning": {
                       "anyOf": [
@@ -742,38 +845,11 @@
                         }
                       ]
                     },
-                    "calls": {
-                      "type": "array",
-                      "items": {
-                        "type": "object",
-                        "properties": {
-                          "id": {
-                            "type": "string"
-                          },
-                          "name": {
-                            "type": "string"
-                          },
-                          "input": {}
-                        },
-                        "required": [
-                          "id",
-                          "name",
-                          "input"
-                        ],
-                        "additionalProperties": false
-                      }
-                    },
-                    "finish": {
-                      "enum": [
-                        "stop",
-                        "length",
-                        "tool_calls",
-                        "content_filter",
-                        "other"
-                      ]
+                    "text": {
+                      "type": "string"
                     },
                     "usage": {
-                      "type": "object",
+                      "additionalProperties": false,
                       "properties": {
                         "input": {
                           "anyOf": [
@@ -800,7 +876,7 @@
                         "input",
                         "output"
                       ],
-                      "additionalProperties": false
+                      "type": "object"
                     }
                   },
                   "required": [
@@ -810,39 +886,39 @@
                     "finish",
                     "usage"
                   ],
-                  "additionalProperties": false
-                },
-                "attach": {
-                  "additionalProperties": false
+                  "type": "object"
                 }
               }
             },
             "exec": {
+              "attach": {
+                "additionalProperties": false
+              },
               "description": "从显式快照建立独立环境，运行命令，交付稳定产物；不自动采用结果",
               "in": {
-                "type": "object",
+                "additionalProperties": false,
                 "properties": {
-                  "snapshot": {
-                    "type": "string"
-                  },
-                  "mounts": {
-                    "type": "object",
-                    "additionalProperties": {
-                      "type": "string"
-                    }
-                  },
                   "argv": {
-                    "type": "array",
                     "items": {
                       "type": "string"
-                    }
+                    },
+                    "type": "array"
+                  },
+                  "mounts": {
+                    "additionalProperties": {
+                      "type": "string"
+                    },
+                    "type": "object"
+                  },
+                  "snapshot": {
+                    "type": "string"
                   },
                   "stdin": {
                     "type": "string"
                   },
                   "timeout": {
-                    "type": "integer",
-                    "description": "秒，正数，至多 600"
+                    "description": "秒，正数，至多 600",
+                    "type": "integer"
                   }
                 },
                 "required": [
@@ -852,22 +928,25 @@
                   "stdin",
                   "timeout"
                 ],
-                "additionalProperties": false
-              },
-              "attach": {
-                "additionalProperties": false
+                "type": "object"
               },
               "out": {
+                "attach": {
+                  "additionalProperties": false
+                },
                 "value": {
-                  "type": "object",
+                  "additionalProperties": false,
                   "properties": {
                     "exit": {
                       "type": "integer"
                     },
-                    "stdout": {
+                    "snapshot": {
                       "type": "string"
                     },
                     "stderr": {
+                      "type": "string"
+                    },
+                    "stdout": {
                       "type": "string"
                     },
                     "timed_out": {
@@ -875,9 +954,6 @@
                     },
                     "truncated": {
                       "type": "boolean"
-                    },
-                    "snapshot": {
-                      "type": "string"
                     }
                   },
                   "required": [
@@ -888,80 +964,134 @@
                     "truncated",
                     "snapshot"
                   ],
-                  "additionalProperties": false
+                  "type": "object"
+                }
+              }
+            },
+            "infer": {
+              "attach": {
+                "additionalProperties": false
+              },
+              "description": "从 Definition 草稿的 body 推出 Interface；纯计算，不建立构造事实",
+              "in": {
+                "additionalProperties": false,
+                "properties": {
+                  "body": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "modules": {
+                        "description": "模块目录的 Tree ID，要在本次交付的依赖里",
+                        "type": "string"
+                      },
+                      "source": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "source"
+                    ],
+                    "type": "object"
+                  },
+                  "language": {
+                    "enum": [
+                      "lang0@1"
+                    ]
+                  }
                 },
+                "required": [
+                  "language",
+                  "body"
+                ],
+                "type": "object"
+              },
+              "out": {
                 "attach": {
                   "additionalProperties": false
+                },
+                "value": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "interface": {
+                      "type": "object"
+                    }
+                  },
+                  "required": [
+                    "interface"
+                  ],
+                  "type": "object"
                 }
               }
             },
             "instantiate": {
+              "attach": {
+                "additionalProperties": true
+              },
               "description": "实例化已构造的 Definition，输入依赖来自本次交付；Required port 从附带或 self 接上",
               "in": {
-                "type": "object",
+                "additionalProperties": false,
                 "properties": {
                   "definition": {
                     "type": "string"
                   },
                   "input": {
-                    "type": "object",
+                    "additionalProperties": false,
                     "properties": {
-                      "value": {},
                       "dependencies": {
-                        "type": "array",
+                        "description": "显式依赖根的集合；ID 排序、无重复",
                         "items": {
-                          "type": "string",
-                          "description": "Bundle ID"
+                          "description": "Bundle ID",
+                          "type": "string"
                         },
-                        "description": "显式依赖根的集合；ID 排序、无重复"
-                      }
+                        "type": "array"
+                      },
+                      "value": {}
                     },
                     "required": [
                       "value",
                       "dependencies"
                     ],
-                    "additionalProperties": false
+                    "type": "object"
                   },
                   "seats": {
-                    "type": "object",
                     "additionalProperties": {
-                      "type": "object",
+                      "additionalProperties": false,
                       "properties": {
                         "definition": {
                           "type": "string"
                         },
                         "input": {
-                          "type": "object",
+                          "additionalProperties": false,
                           "properties": {
-                            "value": {},
                             "dependencies": {
-                              "type": "array",
+                              "description": "显式依赖根的集合；ID 排序、无重复",
                               "items": {
-                                "type": "string",
-                                "description": "Bundle ID"
+                                "description": "Bundle ID",
+                                "type": "string"
                               },
-                              "description": "显式依赖根的集合；ID 排序、无重复"
-                            }
+                              "type": "array"
+                            },
+                            "value": {}
                           },
                           "required": [
                             "value",
                             "dependencies"
                           ],
-                          "additionalProperties": false
+                          "type": "object"
                         }
                       },
                       "required": [
                         "definition"
                       ],
-                      "additionalProperties": false
-                    }
+                      "type": "object"
+                    },
+                    "type": "object"
                   },
                   "self": {
-                    "type": "object",
                     "additionalProperties": {
                       "type": "string"
                     },
-                    "description": "Required port → port/<自己Provided port> 或 look"
+                    "description": "Required port → port/<自己Provided port> 或 look",
+                    "type": "object"
                   }
                 },
                 "required": [
@@ -970,97 +1100,150 @@
                   "seats",
                   "self"
                 ],
-                "additionalProperties": false
-              },
-              "attach": {
-                "additionalProperties": true
+                "type": "object"
               },
               "out": {
-                "value": {
-                  "type": "null"
-                },
                 "attach": {
                   "additionalProperties": true
+                },
+                "value": {
+                  "type": "null"
                 }
               }
             },
-            "back": {
-              "description": "收结束状态",
-              "in": {
-                "anyOf": [
-                  {
-                    "type": "object",
-                    "properties": {
-                      "ok": {
-                        "enum": [
-                          true
-                        ]
-                      },
-                      "value": {},
-                      "dependencies": {
-                        "type": "array",
-                        "items": {
-                          "type": "string",
-                          "description": "Bundle ID"
-                        },
-                        "description": "显式依赖根的集合；ID 排序、无重复"
-                      }
-                    },
-                    "required": [
-                      "ok",
-                      "value",
-                      "dependencies"
-                    ],
-                    "additionalProperties": false
-                  },
-                  {
-                    "type": "object",
-                    "properties": {
-                      "ok": {
-                        "enum": [
-                          false
-                        ]
-                      },
-                      "error": {
-                        "type": "object",
-                        "properties": {
-                          "kind": {
-                            "type": "string",
-                            "description": "契约层的 use、denied、type、terminated，或 Language 定义的"
-                          },
-                          "message": {
-                            "type": "string"
-                          },
-                          "data": {}
-                        },
-                        "required": [
-                          "kind",
-                          "message",
-                          "data"
-                        ],
-                        "additionalProperties": false
-                      },
-                      "dependencies": {
-                        "type": "array",
-                        "items": {
-                          "type": "string",
-                          "description": "Bundle ID"
-                        },
-                        "description": "显式依赖根的集合；ID 排序、无重复"
-                      }
-                    },
-                    "required": [
-                      "ok",
-                      "error",
-                      "dependencies"
-                    ],
-                    "additionalProperties": false
-                  }
-                ]
-              },
+            "pack": {
               "attach": {
                 "additionalProperties": false
+              },
+              "description": "把内容和本次交付的依赖建立为 Bundle，返回 ID 并交付该根",
+              "in": {
+                "additionalProperties": false,
+                "properties": {
+                  "content": {
+                    "anyOf": [
+                      {
+                        "additionalProperties": false,
+                        "properties": {
+                          "json": {}
+                        },
+                        "required": [
+                          "json"
+                        ],
+                        "type": "object"
+                      },
+                      {
+                        "additionalProperties": false,
+                        "properties": {
+                          "base64": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "base64"
+                        ],
+                        "type": "object"
+                      },
+                      {
+                        "additionalProperties": false,
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "id"
+                        ],
+                        "type": "object"
+                      },
+                      {
+                        "additionalProperties": false,
+                        "properties": {
+                          "parts": {
+                            "items": {
+                              "type": "string"
+                            },
+                            "type": "array"
+                          }
+                        },
+                        "required": [
+                          "parts"
+                        ],
+                        "type": "object"
+                      }
+                    ]
+                  },
+                  "dependencies": {
+                    "description": "显式依赖根的集合；ID 排序、无重复",
+                    "items": {
+                      "description": "Bundle ID",
+                      "type": "string"
+                    },
+                    "type": "array"
+                  }
+                },
+                "required": [
+                  "content",
+                  "dependencies"
+                ],
+                "type": "object"
+              },
+              "out": {
+                "attach": {
+                  "additionalProperties": false
+                },
+                "value": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "id"
+                  ],
+                  "type": "object"
+                }
               }
+            }
+          },
+          "signature": {
+            "in": {
+              "additionalProperties": false,
+              "properties": {
+                "snapshot": {
+                  "type": "string"
+                },
+                "task": {
+                  "description": "要做的事。",
+                  "type": "string"
+                },
+                "worker": {
+                  "description": "交办时实例化的 Definition 的 ID。",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "task",
+                "worker",
+                "snapshot"
+              ],
+              "type": "object"
+            },
+            "out": {
+              "additionalProperties": false,
+              "properties": {
+                "snapshot": {
+                  "type": "string"
+                },
+                "summary": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "summary",
+                "snapshot"
+              ],
+              "type": "object"
             }
           }
         },
@@ -1416,6 +1599,28 @@
             ],
             "additionalProperties": false
           }
+        },
+        {
+          "name": "construct_agent",
+          "description": "构造一个 Agent，交办时按名字用它。",
+          "input": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string",
+                "description": "给它起的名字。"
+              },
+              "source": {
+                "type": "string",
+                "description": "Lang0 源码，须有顶层 def main，参数与返回值都标类型；可以 import library 里的模块。"
+              }
+            },
+            "required": [
+              "name",
+              "source"
+            ],
+            "additionalProperties": false
+          }
         }
       ]
     },
@@ -1587,6 +1792,28 @@
             ],
             "additionalProperties": false
           }
+        },
+        {
+          "name": "construct_agent",
+          "description": "构造一个 Agent，交办时按名字用它。",
+          "input": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string",
+                "description": "给它起的名字。"
+              },
+              "source": {
+                "type": "string",
+                "description": "Lang0 源码，须有顶层 def main，参数与返回值都标类型；可以 import library 里的模块。"
+              }
+            },
+            "required": [
+              "name",
+              "source"
+            ],
+            "additionalProperties": false
+          }
         }
       ]
     },
@@ -1749,6 +1976,28 @@
             },
             "required": [
               "name"
+            ],
+            "additionalProperties": false
+          }
+        },
+        {
+          "name": "construct_agent",
+          "description": "构造一个 Agent，交办时按名字用它。",
+          "input": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string",
+                "description": "给它起的名字。"
+              },
+              "source": {
+                "type": "string",
+                "description": "Lang0 源码，须有顶层 def main，参数与返回值都标类型；可以 import library 里的模块。"
+              }
+            },
+            "required": [
+              "name",
+              "source"
             ],
             "additionalProperties": false
           }
@@ -3298,6 +3547,24 @@
                   "port": "instantiate"
                 },
                 "ref": "h-rinst"
+              },
+              "pack": {
+                "to": {
+                  "port": "pack"
+                },
+                "ref": "h-rpack"
+              },
+              "construct": {
+                "to": {
+                  "port": "construct"
+                },
+                "ref": "h-rconstruct"
+              },
+              "infer": {
+                "to": {
+                  "port": "infer"
+                },
+                "ref": "h-rinfer"
               }
             },
             "result": {
@@ -3651,6 +3918,75 @@
                       }
                     }
                   }
+                },
+                "pack": {
+                  "handle": "h-w0pack",
+                  "revoker": {
+                    "handle": "h-rev8",
+                    "spec": {
+                      "description": "沿派生链撤销这次给出的 Reference",
+                      "in": {
+                        "type": "null"
+                      },
+                      "attach": {
+                        "additionalProperties": false
+                      },
+                      "out": {
+                        "value": {
+                          "type": "null"
+                        },
+                        "attach": {
+                          "additionalProperties": false
+                        }
+                      }
+                    }
+                  }
+                },
+                "construct": {
+                  "handle": "h-w0construct",
+                  "revoker": {
+                    "handle": "h-rev9",
+                    "spec": {
+                      "description": "沿派生链撤销这次给出的 Reference",
+                      "in": {
+                        "type": "null"
+                      },
+                      "attach": {
+                        "additionalProperties": false
+                      },
+                      "out": {
+                        "value": {
+                          "type": "null"
+                        },
+                        "attach": {
+                          "additionalProperties": false
+                        }
+                      }
+                    }
+                  }
+                },
+                "infer": {
+                  "handle": "h-w0infer",
+                  "revoker": {
+                    "handle": "h-rev10",
+                    "spec": {
+                      "description": "沿派生链撤销这次给出的 Reference",
+                      "in": {
+                        "type": "null"
+                      },
+                      "attach": {
+                        "additionalProperties": false
+                      },
+                      "out": {
+                        "value": {
+                          "type": "null"
+                        },
+                        "attach": {
+                          "additionalProperties": false
+                        }
+                      }
+                    }
+                  }
                 }
               },
               "accepted": true
@@ -3788,7 +4124,10 @@
               "engine": "h-w0engine",
               "exec": "h-w0exec",
               "instantiate": "h-w0inst",
-              "back": "h-w0back"
+              "back": "h-w0back",
+              "pack": "h-w0pack",
+              "construct": "h-w0construct",
+              "infer": "h-w0infer"
             }
           }
         }

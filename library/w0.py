@@ -2,7 +2,9 @@
 from typing import TypedDict
 import croon
 from croon import Inbox, Port, receive
-from library.kernel import Instantiate, Outcome
+from library.kernel import Construct, Instantiate, Outcome, Pack
+from library.infer import Infer
+from library.agents import construct_tools
 from library.model import Generate
 from library.directory import Exec
 from library.files import file_tools
@@ -17,7 +19,7 @@ SYSTEM = "你是 W0。能自己改，也能把一处修改交办出去；交回�
 
 
 def main(task: str, worker: str, snapshot: str, engine: Generate, exec: Exec, instantiate: Instantiate,
-         back: Done, done: Inbox(Done)) -> Out:
+         pack: Pack, construct: Construct, infer: Infer, back: Done, done: Inbox(Done)) -> Out:
     """改仓库里的代码，必要时交办给 worker。
 
     Args:
@@ -25,6 +27,8 @@ def main(task: str, worker: str, snapshot: str, engine: Generate, exec: Exec, in
         worker: 交办时实例化的 Definition 的 ID。
     """
     ws = workspace(snapshot)
+    agents = {}
+    modules = croon.definition()["body"]["modules"]
 
     def delegate(name: str, task: str) -> Report:
         """交办一处修改给子 Agent，等它结束，交回总结与 diff；不并入。
@@ -56,6 +60,6 @@ def main(task: str, worker: str, snapshot: str, engine: Generate, exec: Exec, in
         adopt(ws, exec, name)
         return f"已并入 {name}"
 
-    tools = file_tools(exec, ws) + [delegate, merge]
+    tools = file_tools(exec, ws) + [delegate, merge] + construct_tools(pack, construct, infer, modules, agents)
     summary = react(engine, tools, [{"role": "user", "text": task}], SYSTEM)
     return croon.deliver({"summary": summary, "snapshot": ws["current"]}, [ws["current"]])

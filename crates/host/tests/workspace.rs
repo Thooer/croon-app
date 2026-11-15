@@ -7,7 +7,7 @@ use lang0::Lang0;
 use serde_json::{Value as Json, json};
 use std::collections::BTreeMap;
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::rc::Rc;
 
 struct Temp(PathBuf);
@@ -51,15 +51,7 @@ fn run(source: &str) -> Json {
             .as_nanos()
     )));
     let library = temp.0.join("root/library");
-    fs::create_dir_all(&library).unwrap();
-    let source_dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../library");
-    for entry in fs::read_dir(&source_dir).unwrap() {
-        let path = entry.unwrap().path();
-        if path.extension().is_some_and(|e| e == "py") {
-            fs::copy(&path, library.join(path.file_name().unwrap())).unwrap();
-        }
-    }
-    host::library::generate(&library);
+    host::library::install(&library);
     let content = Content::from_inputs(
         Rc::new(ContentStore::open(temp.0.join("store")).unwrap()),
         &[],

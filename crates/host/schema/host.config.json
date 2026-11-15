@@ -1,0 +1,139 @@
+{
+  "description": "宿主配置：一个系统的名字、Kernel 目录、模型来源与文件执行的装配",
+  "type": "object",
+  "properties": {
+    "system": {
+      "type": "string",
+      "description": "系统名；恢复身份由它派生"
+    },
+    "kernel": {
+      "type": "string",
+      "description": "Kernel 目录：记录库与内容库"
+    },
+    "model": {
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "provider": {
+              "type": "string",
+              "description": "符合 model.provider 的配置文件"
+            }
+          },
+          "required": [
+            "provider"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "provider": {
+              "type": "string"
+            },
+            "record": {
+              "type": "string",
+              "description": "录像写到这里，不能已经存在"
+            }
+          },
+          "required": [
+            "provider",
+            "record"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "replay": {
+              "type": "string",
+              "description": "要回放的录像"
+            }
+          },
+          "required": [
+            "replay"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "directory": {
+      "type": "object",
+      "properties": {
+        "state": {
+          "type": "string",
+          "description": "提供者的私有 state 目录"
+        },
+        "docker": {
+          "type": "string"
+        },
+        "python": {
+          "type": "string"
+        },
+        "image": {
+          "type": "string",
+          "description": "任务镜像"
+        },
+        "collector_image": {
+          "type": "string",
+          "description": "可信采集镜像，要有 python3"
+        },
+        "platform": {
+          "type": "string"
+        },
+        "cpus": {
+          "type": "string"
+        },
+        "memory_bytes": {
+          "type": "integer"
+        },
+        "work_bytes": {
+          "type": "integer"
+        },
+        "temporary_bytes": {
+          "type": "integer"
+        },
+        "pids": {
+          "type": "integer"
+        },
+        "output_bytes": {
+          "type": "integer"
+        },
+        "nodes": {
+          "type": "integer"
+        },
+        "archive_bytes": {
+          "type": "integer"
+        },
+        "cleanup_timeout_seconds": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "state",
+        "docker",
+        "python",
+        "image",
+        "collector_image",
+        "platform",
+        "cpus",
+        "memory_bytes",
+        "work_bytes",
+        "temporary_bytes",
+        "pids",
+        "output_bytes",
+        "nodes",
+        "archive_bytes",
+        "cleanup_timeout_seconds"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "required": [
+    "system",
+    "kernel",
+    "model",
+    "directory"
+  ],
+  "additionalProperties": false
+}

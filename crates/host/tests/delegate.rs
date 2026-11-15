@@ -9,7 +9,7 @@ use scenarios::{
 };
 use serde_json::json;
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::rc::Rc;
 
 struct Temp(PathBuf);
@@ -28,17 +28,7 @@ fn library_root() -> Temp {
             .unwrap()
             .as_nanos()
     ));
-    fs::create_dir_all(root.join("library")).unwrap();
-    for name in ["files.py", "react.py", "s.py", "w0.py", "workspace.py"] {
-        fs::copy(
-            Path::new(env!("CARGO_MANIFEST_DIR"))
-                .join("../../library")
-                .join(name),
-            root.join("library").join(name),
-        )
-        .unwrap();
-    }
-    host::library::generate(root.join("library"));
+    host::library::install(root.join("library"));
     Temp(root)
 }
 

@@ -15,6 +15,37 @@ fn port_name(name: &str) -> String {
         .unwrap_or_default()
 }
 
+/// Library 的手写模块，编进二进制：宿主交出的 Library 只由这次构建决定。
+pub const SOURCES: &[(&str, &str)] = &[
+    ("files.py", include_str!("../../../library/files.py")),
+    ("react.py", include_str!("../../../library/react.py")),
+    ("s.py", include_str!("../../../library/s.py")),
+    ("w0.py", include_str!("../../../library/w0.py")),
+    (
+        "workspace.py",
+        include_str!("../../../library/workspace.py"),
+    ),
+];
+
+/// 一个手写模块的源码。
+pub fn source(name: &str) -> &'static str {
+    SOURCES
+        .iter()
+        .find(|(n, _)| *n == name)
+        .map(|(_, s)| *s)
+        .unwrap_or_else(|| panic!("Library 里没有 {name}"))
+}
+
+/// 把手写模块与生成模块一起写进 `output`，得到完整的 library 目录。
+pub fn install(output: impl AsRef<Path>) {
+    let output = output.as_ref();
+    fs::create_dir_all(output).unwrap();
+    for (name, text) in SOURCES {
+        fs::write(output.join(name), text).unwrap();
+    }
+    generate(output);
+}
+
 /// 把 kernel.py、model.py、directory.py 写进 `output`。
 pub fn generate(output: impl AsRef<Path>) {
     let output = output.as_ref();

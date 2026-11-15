@@ -238,17 +238,17 @@ impl Execution for Pending {
         if let Some(result) = &self.result {
             return Ok(Some(result.clone()));
         }
-        let status = {
+        let (status, expired) = {
             let mut child = self
                 .child
                 .lock()
                 .map_err(|_| HostError("model child lock poisoned".into()))?;
             match child.try_wait().map_err(host)? {
-                Some(status) => status,
+                Some(status) => (status, false),
                 None if Instant::now() < self.deadline => return Ok(None),
                 None => {
                     child.kill().map_err(host)?;
-                    child.wait().map_err(host)?
+                    (child.wait().map_err(host)?, true)
                 }
             }
         };
@@ -256,24 +256,89 @@ impl Execution for Pending {
             .lock()
             .map_err(|_| HostError("model child registry poisoned".into()))?
             .remove(&self.attempt);
-        if !status.success() {
-            let diagnostic = read_bounded(&self.workdir.join("curl.stderr"), ERROR_LIMIT)?;
+        let stderr = read_bounded(&self.workdir.join("curl.stderr"), ERROR_LIMIT)?;
+        let stderr = String::from_utf8_lossy(&stderr).into_owned();
+        let response = self.workdir.join("response.json");
+        // 分类见 docs/Model/README.md「失败」：use 失败交还 body，宿主故障让 Kernel 停下。
+        let outcome = if expired || status.code() == Some(28) {
+            failure(None, None, "模型请求超出时限".into())
+        } else if !status.success() {
             return Err(HostError(format!(
-                "model HTTP request failed ({}): {}",
-                status,
-                String::from_utf8_lossy(&diagnostic)
+                "model HTTP request failed ({status}): {}",
+                stderr.trim()
             )));
-        }
-        let bytes = read_bounded(&self.workdir.join("response.json"), RESPONSE_LIMIT)?;
-        let response: Json = serde_json::from_slice(&bytes)
-            .map_err(|error| HostError(format!("model response JSON: {error}")))?;
-        let outcome = parse_response(response)?;
-        croon_eval::schema::validate(&schema("model.generate")["out"]["value"], &outcome["value"])
-            .map_err(|error| HostError(format!("model.generate response: {error:?}")))?;
+        } else {
+            let code = http_status(&stderr).ok_or_else(|| {
+                HostError(format!(
+                    "model HTTP request failed: curl 没有报出 HTTP 状态：{}",
+                    stderr.trim()
+                ))
+            })?;
+            if (200..300).contains(&code) {
+                let bytes = read_bounded(&response, RESPONSE_LIMIT)?;
+                let parsed = serde_json::from_slice::<Json>(&bytes)
+                    .map_err(|error| format!("回复不是 JSON：{error}"))
+                    .and_then(parse_response)
+                    .and_then(|outcome| {
+                        croon_eval::schema::validate(
+                            &schema("model.generate")["out"]["value"],
+                            &outcome["value"],
+                        )
+                        .map_err(|error| format!("回复不合 model.generate：{error:?}"))
+                        .map(|_| outcome)
+                    });
+                match parsed {
+                    Ok(outcome) => outcome,
+                    Err(message) => failure(Some(code), None, message),
+                }
+            } else {
+                let body = read_prefix(&response, ERROR_LIMIT);
+                if matches!(code, 400 | 413 | 422 | 429) || code >= 500 {
+                    let (kind, message) = provider_error(&body);
+                    failure(Some(code), kind, message)
+                } else {
+                    return Err(HostError(format!(
+                        "model HTTP request failed (HTTP {code}): {}",
+                        String::from_utf8_lossy(&body)
+                    )));
+                }
+            }
+        };
         let result = HostDone { outcome };
         self.result = Some(result.clone());
         Ok(Some(result))
     }
+}
+
+/// Provider 报出的 use 失败：data 带 HTTP 状态与 Provider 给的错误类型。
+fn failure(status: Option<u16>, kind: Option<String>, message: String) -> Json {
+    json!({"ok": false, "error": {"kind": "use", "message": message,
+        "data": {"status": status, "type": kind}}, "dependencies": []})
+}
+
+/// curl 的 write-out 写在 stderr 最后的 `croon-http <状态>`；000 表示没有收到响应。
+fn http_status(stderr: &str) -> Option<u16> {
+    stderr
+        .lines()
+        .rev()
+        .find_map(|line| line.strip_prefix("croon-http "))
+        .and_then(|code| code.trim().parse().ok())
+        .filter(|code| *code != 0)
+}
+
+/// 从 Provider 的错误体里取错误类型与说明；不是 JSON 就把原文当说明。
+fn provider_error(body: &[u8]) -> (Option<String>, String) {
+    let text = String::from_utf8_lossy(body).into_owned();
+    let Ok(value) = serde_json::from_slice::<Json>(body) else {
+        return (None, text);
+    };
+    let error = &value["error"];
+    let kind = error["type"]
+        .as_str()
+        .or_else(|| error["code"].as_str())
+        .map(str::to_owned);
+    let message = error["message"].as_str().map(str::to_owned).unwrap_or(text);
+    (kind, message)
 }
 
 impl Drop for Pending {
@@ -341,11 +406,11 @@ fn build_request(input: &Json, model: &str, max_output_tokens: u64) -> Json {
     request
 }
 
-fn parse_response(payload: Json) -> Result<Json, HostError> {
+fn parse_response(payload: Json) -> Result<Json, String> {
     let choice = payload["choices"]
         .as_array()
         .and_then(|choices| choices.first())
-        .ok_or_else(|| HostError("completion response has no choices".into()))?;
+        .ok_or_else(|| "completion response has no choices".to_owned())?;
     let message = &choice["message"];
     let text = if let Some(text) = message["content"].as_str() {
         text.to_owned()
@@ -364,12 +429,12 @@ fn parse_response(payload: Json) -> Result<Json, HostError> {
         .map(|call| {
             let arguments = call["function"]["arguments"]
                 .as_str()
-                .ok_or_else(|| HostError("tool call arguments must be JSON text".into()))?;
+                .ok_or_else(|| "tool call arguments must be JSON text".to_owned())?;
             let input: Json = serde_json::from_str(arguments)
-                .map_err(|error| HostError(format!("tool call arguments: {error}")))?;
+                .map_err(|error| format!("tool call arguments: {error}"))?;
             Ok(json!({"id":call["id"], "name":call["function"]["name"], "input":input}))
         })
-        .collect::<Result<_, HostError>>()?;
+        .collect::<Result<_, String>>()?;
     let finish = match choice["finish_reason"].as_str().unwrap_or("other") {
         "stop" => "stop",
         "length" => "length",
@@ -417,10 +482,23 @@ fn read_bounded(path: &Path, limit: u64) -> Result<Vec<u8>, HostError> {
     Ok(bytes)
 }
 
+/// 读一个文件的前 `limit` 个字节；读不到就是空的。只用来拼诊断信息。
+fn read_prefix(path: &Path, limit: u64) -> Vec<u8> {
+    let mut bytes = Vec::new();
+    if let Ok(file) = OpenOptions::new()
+        .read(true)
+        .custom_flags(libc::O_NOFOLLOW | libc::O_CLOEXEC)
+        .open(path)
+    {
+        let _ = file.take(limit).read_to_end(&mut bytes);
+    }
+    bytes
+}
+
 fn curl_config(url: &str, key: &str, request_path: &Path, timeout: Duration) -> String {
     let quote = |value: &str| format!("\"{}\"", value.replace('\\', "\\\\").replace('"', "\\\""));
     format!(
-        "url = {}\nrequest = \"POST\"\nheader = \"content-type: application/json\"\nheader = {}\ndata-binary = {}\nmax-filesize = {}\nmax-time = {}\nsilent\nshow-error\nfail-with-body\n",
+        "url = {}\nrequest = \"POST\"\nheader = \"content-type: application/json\"\nheader = {}\ndata-binary = {}\nmax-filesize = {}\nmax-time = {}\nsilent\nshow-error\nwrite-out = \"%{{stderr}}croon-http %{{http_code}}\\n\"\n",
         quote(url),
         quote(&format!("Authorization: Bearer {key}")),
         quote(&format!("@{}", request_path.display())),
@@ -443,6 +521,14 @@ pub(crate) mod tests {
     use std::thread;
 
     pub(crate) fn fixture(
+        response: Json,
+        delay: Duration,
+    ) -> (String, thread::JoinHandle<(Json, String)>) {
+        fixture_status(200, response, delay)
+    }
+
+    pub(crate) fn fixture_status(
+        status: u16,
         response: Json,
         delay: Duration,
     ) -> (String, thread::JoinHandle<(Json, String)>) {
@@ -474,7 +560,8 @@ pub(crate) mod tests {
             let response = serde_json::to_vec(&response).unwrap();
             let _ = write!(
                 stream,
-                "HTTP/1.1 200 OK\r\ncontent-type: application/json\r\ncontent-length: {}\r\nconnection: close\r\n\r\n",
+                "HTTP/1.1 {} Fixture\r\ncontent-type: application/json\r\ncontent-length: {}\r\nconnection: close\r\n\r\n",
+                status,
                 response.len()
             );
             let _ = stream.write_all(&response);
@@ -588,6 +675,81 @@ pub(crate) mod tests {
     }
 
     #[test]
+    fn a_provider_error_reports_its_body_without_credentials() {
+        let (base_url, server) = fixture_status(
+            404,
+            json!({"error":{"message":"Model \"m\" is not supported","type":"model_not_found"}}),
+            Duration::ZERO,
+        );
+        let adapter = config(base_url, Duration::from_secs(5));
+        let input = json!({"system":"s","messages":[],"tools":[]});
+        let mut execution = adapter
+            .start(&call(content_scope(content()), &input, "attempt-404"))
+            .unwrap();
+        let deadline = Instant::now() + Duration::from_secs(5);
+        let error = loop {
+            match execution.collect() {
+                Err(error) => break error,
+                Ok(None) => {
+                    assert!(Instant::now() < deadline, "404 没有及时报出");
+                    thread::sleep(Duration::from_millis(5));
+                }
+                Ok(Some(_)) => panic!("404 不能当成模型结果"),
+            }
+        };
+        server.join().unwrap();
+        assert!(error.0.contains("model HTTP request failed"), "{error}");
+        assert!(error.0.contains("model_not_found"), "{error}");
+        assert!(!error.0.contains("fixture-secret"), "{error}");
+    }
+
+    fn finish(execution: &mut Box<dyn Execution>) -> Result<HostDone, HostError> {
+        let deadline = Instant::now() + Duration::from_secs(5);
+        loop {
+            if let Some(done) = execution.collect()? {
+                return Ok(done);
+            }
+            assert!(Instant::now() < deadline, "没有及时结束");
+            thread::sleep(Duration::from_millis(5));
+        }
+    }
+
+    #[test]
+    fn provider_failures_are_classified_by_who_can_fix_them() {
+        let input = json!({"system":"s","messages":[],"tools":[]});
+        for (status, business) in [(400, true), (429, true), (503, true), (401, false)] {
+            let (base_url, server) = fixture_status(
+                status,
+                json!({"error":{"message":"m","type":"t"}}),
+                Duration::ZERO,
+            );
+            let adapter = config(base_url, Duration::from_secs(5));
+            let mut execution = adapter
+                .start(&call(content_scope(content()), &input, "attempt"))
+                .unwrap();
+            let got = finish(&mut execution);
+            server.join().unwrap();
+            if business {
+                let outcome = got.unwrap().outcome;
+                assert_eq!(outcome["error"]["kind"], "use", "{status}: {outcome}");
+                assert_eq!(
+                    outcome["error"]["data"],
+                    json!({"status": status, "type": "t"})
+                );
+            } else {
+                let error = got.err().expect("401 是宿主故障");
+                assert!(!error.0.contains("fixture-secret"), "{error}");
+            }
+        }
+        // 连不上是宿主故障：修好网络就能重做，不记成业务失败。
+        let adapter = config("http://127.0.0.1:1".into(), Duration::from_secs(5));
+        let mut execution = adapter
+            .start(&call(content_scope(content()), &input, "attempt-refused"))
+            .unwrap();
+        assert!(finish(&mut execution).is_err());
+    }
+
+    #[test]
     fn config_file_is_validated_and_selects_the_declared_protocol() {
         let root = std::env::temp_dir().join(format!(
             "model-config-{}-{}",
@@ -609,7 +771,7 @@ pub(crate) mod tests {
     #[test]
     fn malformed_tool_arguments_and_http_deadlines_are_errors() {
         let error = parse_response(json!({"choices":[{"finish_reason":"tool_calls","message":{"tool_calls":[{"function":{"arguments":"{"}}]}}]})).unwrap_err();
-        assert!(error.0.contains("tool call arguments"));
+        assert!(error.contains("tool call arguments"));
         let (base_url, server) = fixture(
             json!({"choices":[{"finish_reason":"stop","message":{"content":"late"}}]}),
             Duration::from_millis(150),
@@ -623,7 +785,10 @@ pub(crate) mod tests {
         loop {
             match execution.collect() {
                 Err(error) => {
-                    assert!(error.0.contains("model HTTP request failed"));
+                    assert!(
+                        error.0.is_empty(),
+                        "超时应当是 use 失败，不是宿主故障：{error}"
+                    );
                     break;
                 }
                 Ok(None) => {
@@ -633,7 +798,10 @@ pub(crate) mod tests {
                     );
                     thread::sleep(Duration::from_millis(5));
                 }
-                Ok(Some(_)) => panic!("late response unexpectedly succeeded"),
+                Ok(Some(done)) => {
+                    assert_eq!(done.outcome["error"]["kind"], "use", "{}", done.outcome);
+                    break;
+                }
             }
         }
         let _ = server.join();

@@ -32,6 +32,7 @@
 | 预置 Charter 与 Application 收什么 | Library/Presets.md |
 | 根怎样装起一个系统、交任务、取回结果 | Host/README.md |
 | 工作区是什么、谁是它的主人、怎样并入 | Library/Runtime.md 的「工作区」 |
+| Library 的某个场景应当跑出什么 Journal | Library/Scenarios/ |
 | 应用侧的证据、先例与研究线索 | Research/；内容按待核验读 |
 | 用户还没成形的想法 | Draft.md；不是设计，AI 只在用户让读时读 |
 | Kernel 的保证、Reference、Journal 与 Definition | croon 的对应文档 |

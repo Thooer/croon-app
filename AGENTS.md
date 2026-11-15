@@ -19,6 +19,7 @@ croon-app 是建立在 croon 与 croon-lang0 之上的完整应用：模型适�
 | docs/Library/Runtime.md | 运行环境、工具调用、交办 |
 | docs/Library/Organization.md | 组织与历史 |
 | docs/Library/Presets.md | 预置 Charter 与 Application |
+| docs/Library/Scenarios/ | Library 场景的预期：每个场景一个文件、一个 json block，schema/ 下是它的展开副本 |
 | docs/Research/ | 应用侧研究线索 |
 | docs/Draft.md | 用户草稿，不是设计；AI 只在用户让读时读 |
 

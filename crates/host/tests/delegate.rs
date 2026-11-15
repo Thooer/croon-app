@@ -1,6 +1,5 @@
-//! The Delegate scenario generates its Library into a temporary root first.
-//! This keeps generated modules out of Git while letting `$tree: library` scan the
-//! exact files that a real app checkout supplies.
+//! Delegate 场景：预期见 docs/Library/Scenarios/Delegate.md。Library 先生成进临时根目录，
+//! 生成模块不进 Git，`$tree: library` 扫到的仍是真实检出提供的那些文件。
 
 use kernel::host::Language;
 use lang0::Lang0;
@@ -46,9 +45,9 @@ fn library_root() -> Temp {
 fn fixture() -> (Rc<Scn>, Setup, Temp) {
     let root = library_root();
     let mut fixture: serde_json::Value =
-        serde_json::from_str(include_str!("../schema/lang0.scenario.delegate.json")).unwrap();
+        serde_json::from_str(include_str!("../schema/library.scenario.delegate.json")).unwrap();
     let mut all = scenario::all();
-    all.push(("lang0.scenario.delegate", fixture.clone()));
+    all.push(("library.scenario.delegate", fixture.clone()));
     let mut values = scenario::values(&all);
     // The shared reconnect root uses deliberately broad fake-provider specs.
     // Adapt only its test Definition to the app-owned full Port specs so the
@@ -91,7 +90,7 @@ fn fixture() -> (Rc<Scn>, Setup, Temp) {
         vec![Box::new(Lang0) as Box<dyn Language>]
     });
     (
-        Rc::new(Scn::of("lang0.scenario.delegate", &fixture)),
+        Rc::new(Scn::of("library.scenario.delegate", &fixture)),
         setup,
         root,
     )

@@ -1,6 +1,6 @@
 # Library
 
-Library 是随框架预置的一批 Definition 与做法，用 Lang0 与 Kernel 的 Port 写成。它不是机制：Kernel 对它不做任何特殊处理，它与用户自己构造的 Definition 是同一种东西，可以整份替换，也可以只用一部分。它不产生权利：其中的 Definition 拿到的 Reference 仍只来自接线。谁来装由根决定，装它就是构造加实例化；Application 是它的成品形态。本文件夹是它的内容，分三份，见「地图」。代码是一份目录 Bundle，用它的 Cognition 把它放进 body.modules；模块装载的语义见 croon-lang0:docs/README.md「模块」。源码在仓库根的 library/；files.py、react.py、s.py、w0.py 是手写源码，kernel.py、model.py、directory.py 是由本仓库生成器产生的模块，不进 Git。
+Library 是随框架预置的一批 Definition 与做法，用 Lang0 与 Kernel 的 Port 写成。它不是机制：Kernel 对它不做任何特殊处理，它与用户自己构造的 Definition 是同一种东西，可以整份替换，也可以只用一部分。它不产生权利：其中的 Definition 拿到的 Reference 仍只来自接线。谁来装由根决定，装它就是构造加实例化；Application 是它的成品形态。本文件夹是它的内容，分三份，见「地图」。代码是一份目录 Bundle，用它的 Cognition 把它放进 body.modules；模块装载的语义见 croon-lang0:docs/README.md「模块」。源码在仓库根的 library/；files.py、react.py、s.py、w0.py、workspace.py 是手写源码，kernel.py、model.py、directory.py 是由本仓库生成器产生的模块，不进 Git。
 
 生成模块的职责固定为：library.kernel 只提供 KernelPort 的 Port spec 与 Outcome；library.model 的 Generate 来自 model.generate；library.directory 的 Exec 来自 directory.exec。生成源码与库文件一同固定进目录 Bundle，重放不随宿主构建改变类型。
 

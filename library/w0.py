@@ -5,8 +5,9 @@ from croon import Inbox, Port, receive
 from library.kernel import Instantiate, Outcome
 from library.model import Generate
 from library.directory import Exec
-from library.files import file_tools, execute
+from library.files import file_tools
 from library.react import react
+from library.workspace import workspace, execute, fork, offer, adopt
 
 Out = TypedDict("Out", {"summary": str, "snapshot": str})
 Report = TypedDict("Report", {"name": str, "summary": str, "diff": str})
@@ -23,8 +24,7 @@ def main(task: str, worker: str, snapshot: str, engine: Generate, exec: Exec, in
         task: 要做的事。
         worker: 交办时实例化的 Definition 的 ID。
     """
-    handed = {}
-    state = {"snapshot": snapshot}
+    ws = workspace(snapshot)
 
     def delegate(name: str, task: str) -> Report:
         """交办一处修改给子 Agent，等它结束，交回总结与 diff；不并入。
@@ -33,9 +33,8 @@ def main(task: str, worker: str, snapshot: str, engine: Generate, exec: Exec, in
             name: 给这次交办起的名字，并入时用。
             task: 交给子 Agent 的任务。
         """
-        if name in handed:
-            name = f"{name}{len(handed) + 1}"
-        base = state["snapshot"]
+        base = ws["current"]
+        name = fork(ws, name)
         r = croon.send(instantiate, {"definition": worker, "input": {"value": {"task": task, "snapshot": base}, "dependencies": [base]}, "seats": {}, "self": {}},
                        dependencies=sorted([worker, base]), attach={"engine": engine, "exec": exec})
         reg = croon.send(r.attach["notify"], {}, attach={"to": back})
@@ -43,8 +42,8 @@ def main(task: str, worker: str, snapshot: str, engine: Generate, exec: Exec, in
         if not a.value["ok"]:
             raise RuntimeError(f"{name} 失败：{a.value['error']['message']}")
         got = a.value["value"]
-        handed[name] = {"base": base, "snapshot": got["snapshot"]}
-        d = execute(exec, state["snapshot"], ["git", "diff", "--no-index", "--stat", "/mnt/a", "/mnt/b"],
+        offer(ws, name, got["snapshot"])
+        d = execute(exec, ws["current"], ["git", "diff", "--no-index", "--stat", "/mnt/a", "/mnt/b"],
                     mounts={"a": base, "b": got["snapshot"]})
         return {"name": name, "summary": got["summary"], "diff": d["stdout"]}
 
@@ -54,20 +53,9 @@ def main(task: str, worker: str, snapshot: str, engine: Generate, exec: Exec, in
         Args:
             name: 交办时返回的名字。
         """
-        h = handed.get(name)
-        if h is None:
-            raise KeyError(f"没有名为 {name} 的交办")
-        if state["snapshot"] == h["base"]:
-            state["snapshot"] = h["snapshot"]
-        else:
-            r = execute(exec, state["snapshot"],
-                        ["sh", "-c", "cd /work && git fetch /mnt/s HEAD && git merge --no-edit FETCH_HEAD"],
-                        mounts={"s": h["snapshot"]})
-            if r["exit"] != 0:
-                raise RuntimeError(r["stderr"])
-            state["snapshot"] = r["snapshot"]
+        adopt(ws, exec, name)
         return f"已并入 {name}"
 
-    tools = file_tools(exec, state) + [delegate, merge]
+    tools = file_tools(exec, ws) + [delegate, merge]
     summary = react(engine, tools, [{"role": "user", "text": task}], SYSTEM)
-    return croon.deliver({"summary": summary, "snapshot": state["snapshot"]}, [state["snapshot"]])
+    return croon.deliver({"summary": summary, "snapshot": ws["current"]}, [ws["current"]])

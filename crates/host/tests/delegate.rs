@@ -30,7 +30,7 @@ fn library_root() -> Temp {
             .as_nanos()
     ));
     fs::create_dir_all(root.join("library")).unwrap();
-    for name in ["files.py", "react.py", "s.py", "w0.py"] {
+    for name in ["files.py", "react.py", "s.py", "w0.py", "workspace.py"] {
         fs::copy(
             Path::new(env!("CARGO_MANIFEST_DIR"))
                 .join("../../library")

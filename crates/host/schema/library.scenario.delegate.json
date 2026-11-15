@@ -1602,7 +1602,7 @@
         },
         {
           "name": "construct_agent",
-          "description": "构造一个 Agent，交办时按名字用它。",
+          "description": "构造一个 Agent，之后用 delegate_to 按名字交办。",
           "input": {
             "type": "object",
             "properties": {
@@ -1618,6 +1618,44 @@
             "required": [
               "name",
               "source"
+            ],
+            "additionalProperties": false
+          }
+        },
+        {
+          "name": "describe_agent",
+          "description": "看一个 Agent 要什么输入、需要哪些 Port。",
+          "input": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string",
+                "description": "造出来的 Agent 的名字。"
+              }
+            },
+            "required": [
+              "name"
+            ],
+            "additionalProperties": false
+          }
+        },
+        {
+          "name": "delegate_to",
+          "description": "把一件事交办给造出来的 Agent，等它结束，交回它的结束值与 diff；不并入。\n\n输入按它 Interface 的 in 写，先用 describe_agent 看清。工作区的当前位置由这里填：它的 in 有\nsnapshot 字段就填上，并用它作依赖。结束值要带 summary 与 snapshot。",
+          "input": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string",
+                "description": "造出来的 Agent 的名字。"
+              },
+              "value": {
+                "description": "它的输入，按 Interface 的 in 写，不含 Bundle ID。"
+              }
+            },
+            "required": [
+              "name",
+              "value"
             ],
             "additionalProperties": false
           }
@@ -1795,7 +1833,7 @@
         },
         {
           "name": "construct_agent",
-          "description": "构造一个 Agent，交办时按名字用它。",
+          "description": "构造一个 Agent，之后用 delegate_to 按名字交办。",
           "input": {
             "type": "object",
             "properties": {
@@ -1811,6 +1849,44 @@
             "required": [
               "name",
               "source"
+            ],
+            "additionalProperties": false
+          }
+        },
+        {
+          "name": "describe_agent",
+          "description": "看一个 Agent 要什么输入、需要哪些 Port。",
+          "input": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string",
+                "description": "造出来的 Agent 的名字。"
+              }
+            },
+            "required": [
+              "name"
+            ],
+            "additionalProperties": false
+          }
+        },
+        {
+          "name": "delegate_to",
+          "description": "把一件事交办给造出来的 Agent，等它结束，交回它的结束值与 diff；不并入。\n\n输入按它 Interface 的 in 写，先用 describe_agent 看清。工作区的当前位置由这里填：它的 in 有\nsnapshot 字段就填上，并用它作依赖。结束值要带 summary 与 snapshot。",
+          "input": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string",
+                "description": "造出来的 Agent 的名字。"
+              },
+              "value": {
+                "description": "它的输入，按 Interface 的 in 写，不含 Bundle ID。"
+              }
+            },
+            "required": [
+              "name",
+              "value"
             ],
             "additionalProperties": false
           }
@@ -1982,7 +2058,7 @@
         },
         {
           "name": "construct_agent",
-          "description": "构造一个 Agent，交办时按名字用它。",
+          "description": "构造一个 Agent，之后用 delegate_to 按名字交办。",
           "input": {
             "type": "object",
             "properties": {
@@ -1998,6 +2074,44 @@
             "required": [
               "name",
               "source"
+            ],
+            "additionalProperties": false
+          }
+        },
+        {
+          "name": "describe_agent",
+          "description": "看一个 Agent 要什么输入、需要哪些 Port。",
+          "input": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string",
+                "description": "造出来的 Agent 的名字。"
+              }
+            },
+            "required": [
+              "name"
+            ],
+            "additionalProperties": false
+          }
+        },
+        {
+          "name": "delegate_to",
+          "description": "把一件事交办给造出来的 Agent，等它结束，交回它的结束值与 diff；不并入。\n\n输入按它 Interface 的 in 写，先用 describe_agent 看清。工作区的当前位置由这里填：它的 in 有\nsnapshot 字段就填上，并用它作依赖。结束值要带 summary 与 snapshot。",
+          "input": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string",
+                "description": "造出来的 Agent 的名字。"
+              },
+              "value": {
+                "description": "它的输入，按 Interface 的 in 写，不含 Bundle ID。"
+              }
+            },
+            "required": [
+              "name",
+              "value"
             ],
             "additionalProperties": false
           }

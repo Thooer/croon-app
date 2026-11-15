@@ -1,10 +1,10 @@
 """W0：根的第一个 Agent。改代码，或交办给 worker，审过交回的再并入。"""
-from typing import TypedDict
+from typing import Any, TypedDict
 import croon
 from croon import Inbox, Port, receive
 from library.kernel import Construct, Instantiate, Outcome, Pack
 from library.infer import Infer
-from library.agents import construct_tools
+from library.agents import agent_tools, run_agent
 from library.model import Generate
 from library.directory import Exec
 from library.files import file_tools
@@ -27,8 +27,8 @@ def main(task: str, worker: str, snapshot: str, engine: Generate, exec: Exec, in
         worker: 交办时实例化的 Definition 的 ID。
     """
     ws = workspace(snapshot)
-    agents = {}
     modules = croon.definition()["body"]["modules"]
+    made_tools, agents = agent_tools(pack, construct, infer, modules)
 
     def delegate(name: str, task: str) -> Report:
         """交办一处修改给子 Agent，等它结束，交回总结与 diff；不并入。
@@ -60,6 +60,29 @@ def main(task: str, worker: str, snapshot: str, engine: Generate, exec: Exec, in
         adopt(ws, exec, name)
         return f"已并入 {name}"
 
-    tools = file_tools(exec, ws) + [delegate, merge] + construct_tools(pack, construct, infer, modules, agents)
+    def delegate_to(name: str, value: Any) -> Report:
+        """把一件事交办给造出来的 Agent，等它结束，交回它的结束值与 diff；不并入。
+
+        输入按它 Interface 的 in 写，先用 describe_agent 看清。工作区的当前位置由这里填：它的 in 有
+        snapshot 字段就填上，并用它作依赖。结束值要带 summary 与 snapshot。
+
+        Args:
+            name: 造出来的 Agent 的名字。
+            value: 它的输入，按 Interface 的 in 写，不含 Bundle ID。
+        """
+        made = agents.get(name)
+        if made is None:
+            raise KeyError(f"没有名为 {name} 的 Agent")
+        base = ws["current"]
+        if "snapshot" in made["interface"]["signature"]["in"]["properties"]:
+            value["snapshot"] = base
+        label = fork(ws, name)
+        got = run_agent(instantiate, engine, exec, back, done, made, value, [base])
+        offer(ws, label, got["snapshot"])
+        d = execute(exec, ws["current"], ["git", "diff", "--no-index", "--stat", "/mnt/a", "/mnt/b"],
+                    mounts={"a": base, "b": got["snapshot"]})
+        return {"name": label, "summary": got["summary"], "diff": d["stdout"]}
+
+    tools = file_tools(exec, ws) + [delegate, merge] + made_tools + [delegate_to]
     summary = react(engine, tools, [{"role": "user", "text": task}], SYSTEM)
     return croon.deliver({"summary": summary, "snapshot": ws["current"]}, [ws["current"]])

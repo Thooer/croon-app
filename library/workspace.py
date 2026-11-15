@@ -10,6 +10,29 @@ from library.directory import Exec
 Fork = TypedDict("Fork", {"base": str, "candidate": NotRequired[str]})
 Workspace = TypedDict("Workspace", {"current": str, "forks": dict[str, Fork]})
 
+# 目录级三方合并：/work 是当前位置，/mnt/b 是 base，/mnt/c 是 candidate。
+# 临时仓库在 /tmp，三棵目录各用自己的索引；git 不收名为 .git 的路径，-f 让被忽略的文件也参与。
+# 冲突时把冲突的路径写到 stderr 并以 1 退出；没有冲突时把 /work 从当前树移到结果树，/work/.git 不动。
+MERGE = "\n".join([
+    "set -e",
+    "export GIT_DIR=/tmp/croon-merge GIT_CONFIG_NOSYSTEM=1 HOME=/tmp",
+    "export GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=safe.directory GIT_CONFIG_VALUE_0='*'",
+    "export GIT_AUTHOR_NAME=croon GIT_AUTHOR_EMAIL=croon@localhost GIT_COMMITTER_NAME=croon GIT_COMMITTER_EMAIL=croon@localhost",
+    "export GIT_AUTHOR_DATE=1970-01-01T00:00:00Z GIT_COMMITTER_DATE=1970-01-01T00:00:00Z",
+    "git init -q",
+    "tree() { GIT_INDEX_FILE=/tmp/croon-merge-$2 git --work-tree=\"$1\" add -A -f . && GIT_INDEX_FILE=/tmp/croon-merge-$2 git write-tree; }",
+    "B=$(tree /mnt/b base); O=$(tree /work ours); T=$(tree /mnt/c theirs)",
+    "CB=$(git commit-tree \"$B\" -m base)",
+    "CO=$(git commit-tree \"$O\" -p \"$CB\" -m ours)",
+    "CT=$(git commit-tree \"$T\" -p \"$CB\" -m theirs)",
+    "if ! R=$(git merge-tree --write-tree --name-only \"$CO\" \"$CT\"); then",
+    "  printf '%s\\n' \"$R\" | sed -n '2,/^$/p' | sed '/^$/d' >&2",
+    "  exit 1",
+    "fi",
+    "R=$(printf '%s\\n' \"$R\" | head -n 1)",
+    "GIT_INDEX_FILE=/tmp/croon-merge-ours git --work-tree=/work read-tree -m -u \"$O\" \"$R\"",
+])
+
 
 def workspace(snapshot: str) -> Workspace:
     """从一份目录 Bundle 开一个私有工作区。"""
@@ -57,7 +80,7 @@ def offer(ws: Workspace, name: str, candidate: str):
 
 
 def adopt(ws: Workspace, exec: Exec, name: str):
-    """把一个候选并回当前位置：当前位置没动过就直接采用，动过就三方合并；合并失败时当前位置不变。"""
+    """把一个候选并回当前位置：当前位置没动过就直接采用，动过就按目录三方合并；冲突时当前位置不变。"""
     f = ws["forks"].get(name)
     if f is None:
         raise KeyError(f"没有名为 {name} 的候选")
@@ -66,9 +89,8 @@ def adopt(ws: Workspace, exec: Exec, name: str):
     if ws["current"] == f["base"]:
         ws["current"] = f["candidate"]
         return
-    r = execute(exec, ws["current"],
-                ["sh", "-c", "cd /work && git fetch /mnt/s HEAD && git merge --no-edit FETCH_HEAD"],
-                mounts={"s": f["candidate"]})
+    r = execute(exec, ws["current"], ["sh", "-c", MERGE],
+                mounts={"b": f["base"], "c": f["candidate"]})
     if r["exit"] != 0:
-        raise RuntimeError(r["stderr"])
+        raise RuntimeError(f"{name} 与当前位置冲突：{r['stderr']}")
     ws["current"] = r["snapshot"]

@@ -74,3 +74,58 @@ fn a_source_runs_on_its_own_signature_with_or_without_a_directory() {
         .expect("没给目录要报错");
     assert!(error.0.contains("snapshot"), "{error}");
 }
+
+const ASKING: &str = r#"from library.model import Generate
+from library.model_call import generate
+
+
+def main(topic: str, engine: Generate) -> str:
+    r = generate(engine, {"system": "s", "messages": [{"role": "user", "text": topic}], "tools": []})
+    return r["text"]
+"#;
+
+#[test]
+#[ignore = "requires local Docker with croon-work:2 and python:3.12-slim"]
+fn exec_works_without_any_model_and_a_source_that_asks_one_fails_with_a_clear_reason() {
+    let temp = Temp::new();
+    let settings = host::Settings::from_json(&json!({})).unwrap();
+    let sessions = temp.root.join("sessions");
+    let assembly = |name: &str| host::Assembly {
+        session: Some(settings.session(Some(name), &sessions).unwrap()),
+        quiet: true,
+        ..Default::default()
+    };
+
+    // 纯计算：没有配置、没有模型，照样跑。
+    let done = host::exec(&settings, assembly("pure"), PURE, json!({"numbers": [1, 2, 3, 4]}), None, &temp.root.join("o1")).unwrap();
+    assert_eq!(done.summary, "6");
+
+    // 要问模型的：那一次调用以 use 失败结束，说明没有配置模型，而不是一个看不懂的宿主故障。
+    let error = host::exec(&settings, assembly("asks"), ASKING, json!({"topic": "咖啡"}), None, &temp.root.join("o2"))
+        .err()
+        .expect("没有模型时问模型要失败");
+    assert!(error.0.contains("没有配置模型"), "{error}");
+    assert!(error.0.contains("model.provider"), "要说怎么配：{error}");
+}
+
+#[test]
+fn run_without_a_model_is_refused_before_anything_is_created() {
+    let temp = Temp::new();
+    let settings = host::Settings::from_json(&json!({})).unwrap();
+    let sessions = temp.root.join("sessions");
+    let error = host::run(
+        &settings,
+        host::Assembly {
+            session: Some(settings.session(Some("nomodel"), &sessions).unwrap()),
+            quiet: true,
+            ..Default::default()
+        },
+        &temp.root,
+        "x",
+        &temp.root.join("o"),
+    )
+    .err()
+    .expect("run 要模型");
+    assert!(error.0.contains("provider") && error.0.contains("README"), "要说怎么配：{error}");
+    assert!(!sessions.exists(), "拒绝时不留下会话目录");
+}

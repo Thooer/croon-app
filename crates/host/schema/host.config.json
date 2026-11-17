@@ -35,6 +35,6 @@
       "additionalProperties": false
     }
   },
-  "required": ["model"],
+  "required": [],
   "additionalProperties": false
 }

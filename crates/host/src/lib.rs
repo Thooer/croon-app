@@ -13,6 +13,7 @@
 //!
 //! 参考：docs/Host/README.md（装配、配置、root entry、客户端）。
 
+mod absent;
 mod blocks;
 pub mod infer;
 pub mod library;
@@ -75,6 +76,8 @@ const BUDGETS: Budgets = Budgets {
     write_bytes: 1 << 30,
 };
 
+const NO_MODEL_FOR_RUN: &str = "这条命令要调用模型，配置里却没有 model：在配置文件里写 {\"model\": {\"provider\": \"/绝对路径/agent-provider.json\"}}，见 README「上手」";
+
 /// 模型从哪里来：真 Provider、边调用边录制，或只回放录像。
 #[derive(Clone)]
 pub enum ModelSource {
@@ -85,6 +88,8 @@ pub enum ModelSource {
         record: Option<PathBuf>,
     },
     Replay(PathBuf),
+    /// 配置里没有 `model`：只有 `exec` 可以这样运行。
+    None,
 }
 
 /// 校验过的宿主配置。一次运行的身份（system、kernel、state）可以没有，由会话补上。
@@ -245,7 +250,9 @@ impl Settings {
         croon_eval::schema::validate(&schema("host.config"), value)
             .map_err(|e| Error(format!("host.config: {e:?}")))?;
         let m = &value["model"];
-        let model = if m.get("replay").is_some() {
+        let model = if value.get("model").is_none() {
+            ModelSource::None
+        } else if m.get("replay").is_some() {
             ModelSource::Replay(absolute(m, "replay")?)
         } else if let Some(record) = m.get("record") {
             ModelSource::Record {
@@ -331,7 +338,7 @@ impl Settings {
     }
 
     /// 配置里的模型来源；写了 `record` 才录，`resuming` 时接着已有的录像追加。录像路径不写时放在会话目录里。
-    fn model_port(&self, session: &Session, resuming: bool) -> Result<Rc<dyn Port>> {
+    fn model_port(&self, session: &Session, resuming: bool, needs_model: bool) -> Result<Rc<dyn Port>> {
         let identity = format!("{}/model", session.name);
         Ok(match &self.model {
             ModelSource::Provider(provider) => Rc::new(model::OpenAiCompatible::from_config_file(
@@ -348,6 +355,10 @@ impl Settings {
                 }
             }
             ModelSource::Replay(cassette) => Rc::new(model::Replayer::open(cassette, identity)?),
+            ModelSource::None if needs_model => {
+                return Err(Error(NO_MODEL_FOR_RUN.into()));
+            }
+            ModelSource::None => Rc::new(absent::NoModel::new(identity)),
         })
     }
 
@@ -563,6 +574,8 @@ fn drive(
     out: &Path,
 ) -> Result<Finished> {
     let resuming = start.is_none();
+    // run 要模型；exec 不要；resume 续的是哪一种看不出来，也不拦：真要问模型时那一次调用以失败结束并说清楚。
+    let needs_model = matches!(start, Some(Start::W0 { .. }));
     // 一次运行的身份：运行参数给了就用，没有就看配置里写死的 system；都没有是调用方的错。
     let session = match assembly.session.clone() {
         Some(session) => session,
@@ -592,6 +605,10 @@ fn drive(
         }
         _ => {}
     }
+    // 配置缺东西是调用方的错：在建任何目录之前说，不留下空会话。
+    if needs_model && assembly.model.is_none() && matches!(settings.model, ModelSource::None) {
+        return Err(Error(NO_MODEL_FOR_RUN.into()));
+    }
     std::fs::create_dir_all(&session.kernel)?;
     std::fs::create_dir_all(&session.state)?;
     let model = match assembly.model {
@@ -605,7 +622,7 @@ fn drive(
             }
             model
         }
-        None => settings.model_port(&session, resuming)?,
+        None => settings.model_port(&session, resuming, needs_model)?,
     };
     let exec: Rc<dyn Port> = Rc::new(directory::Docker::new(settings.directory.config(&session))?);
     let inferrer: Rc<dyn Port> = Rc::new(infer::Infer::new(format!("{}/infer", session.name)));

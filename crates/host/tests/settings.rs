@@ -43,8 +43,10 @@ fn what_the_config_writes_wins_over_the_default_and_a_wrong_value_is_an_error() 
     assert!(error.0.contains("pids"), "错误要点名是哪个字段：{error}");
     let relative = Settings::from_json(&json!({"model": {"provider": "relative.json"}})).err().unwrap();
     assert!(relative.0.contains("绝对路径"), "{relative}");
-    let no_model = Settings::from_json(&json!({})).err().unwrap();
-    assert!(no_model.0.contains("host.config"), "{no_model}");
+    // 没有 model 现在是合法的（exec 不要模型）；要模型的命令在用到时说，见 exec.rs。
+    assert!(Settings::from_json(&json!({})).is_ok());
+    let bad_model = Settings::from_json(&json!({"model": {"nope": 1}})).err().unwrap();
+    assert!(bad_model.0.contains("host.config"), "写了 model 却写错，要报错：{bad_model}");
 }
 
 #[test]
@@ -106,4 +108,14 @@ fn record_true_puts_the_tape_in_the_session_and_a_path_puts_it_there() {
 
     let off = Settings::from_json(&json!({"model": {"provider": "/p/a.json", "record": false}}));
     assert!(off.is_err(), "false 不是合法的写法：不想录就不写 record");
+}
+
+#[test]
+fn a_config_without_a_model_is_allowed_and_says_what_it_lacks_when_a_model_is_needed() {
+    let s = Settings::from_json(&json!({})).unwrap();
+    assert!(matches!(s.model, ModelSource::None));
+    // 只写资源也行：没有 model 不等于没有配置。
+    let s = Settings::from_json(&json!({"directory": {"cpus": "2"}})).unwrap();
+    assert!(matches!(s.model, ModelSource::None));
+    assert_eq!(s.directory.cpus, "2");
 }

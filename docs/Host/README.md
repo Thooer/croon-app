@@ -81,13 +81,15 @@ sessions/<名字>/
 
 ### 配置文件
 
-查找顺序：`--config` 指定的文件；没有就 `$XDG_CONFIG_HOME/croon/config.json`（默认 `~/.config/croon/config.json`）；再没有就全用默认值。**不从环境变量或当前目录找**。路径都是绝对路径。
+查找顺序：`--config` 指定的文件；没有就 `$XDG_CONFIG_HOME/croon/config.json`（默认 `~/.config/croon/config.json`）；再没有，`run` 与 `resume` 报错并说放哪里，`exec` 全用默认值。**不从环境变量或当前目录找**。路径都是绝对路径。
 
-最小的配置只写模型服务：
+`run` 与 `resume` 要调用模型，最小的配置只写模型服务在哪：
 
 ```
 {"model": {"provider": "/绝对路径/agent-provider.json"}}
 ```
+
+`exec` 不调用模型，所以**没有配置文件、或配置里没有 `model` 也能运行**：它得到的是一个「没有配置模型」的占位，被运行的源码若真要问模型，那一次调用以失败结束，说明这次运行没有配置模型。这样第一次装好之后，不需要密钥就能验证它是不是能工作。
 
 其余字段与默认值：
 

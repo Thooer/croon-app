@@ -109,14 +109,14 @@ target/debug/croon-app resume --session 会话名 --out /tmp/demo/out2
 
 不记得会话名：`croon-app resume`（什么参数都不带）会列出最近的几个。会话名拼错了，它会说「找不到会话」并列出已有的。`--out` 要是还不存在或空的目录。已经结束的运行再 `resume` 得到同样的结果。
 
-**6. 不要模型也能试**：`exec` 直接运行一份 Lang0 源码，不经模型；它也是一次独立的运行，有自己的会话，不会撞上上一步的。但它也要读配置里的模型服务，所以先要有第 3 步的配置。
+**6. 不要模型也能试**：`exec` 直接运行一份 Lang0 源码，不经模型，所以**不需要第 3 步的配置，也不需要密钥**；刚装好、想先确认它能工作，就从这里开始。它也是一次独立的运行，有自己的会话，不会撞上别的：
 
 ```
 printf 'def main(n: int) -> int:\n    return n + 1\n' > /tmp/demo/m.py
 target/debug/croon-app exec --source /tmp/demo/m.py --input '{"n":41}' --out /tmp/demo/o
 ```
 
-打印 `42`。`--out` 必须给，但这个例子没有目录产物，不会建出 `/tmp/demo/o`。
+打印 `42`。`--out` 必须给，但这个例子没有目录产物，不会建出 `/tmp/demo/o`。源码里要是问了模型，那一次调用会失败，说这次运行没有配置模型。
 
 ## 常见问题
 

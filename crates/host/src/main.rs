@@ -115,19 +115,28 @@ fn main() -> ExitCode {
         return ExitCode::from(2);
     }
 
-    // 配置：--config，或默认位置；都没有就报错，说清放哪里。
+    // 配置：--config，或默认位置。都没有时 exec 用全默认值（它不要模型）；run 与 resume 要模型，说清放哪里。
     let config = a.config.clone().or_else(host::default_config);
-    let Some(config) = config else {
-        eprintln!(
-            "没有找到配置：用 --config 指定一个，或把它放在 ~/.config/croon/config.json。\n最小的配置只有模型服务：{{\"model\": {{\"provider\": \"/绝对路径/agent-provider.json\"}}}}，见 README「上手」。"
-        );
-        return ExitCode::from(2);
-    };
-    let settings = match host::Settings::load(&config) {
-        Ok(s) => s,
-        Err(e) => {
-            eprintln!("读配置 {} 失败：{e}", config.display());
-            return ExitCode::FAILURE;
+    let settings = match (config, command) {
+        (Some(config), _) => match host::Settings::load(&config) {
+            Ok(s) => s,
+            Err(e) => {
+                eprintln!("读配置 {} 失败：{e}", config.display());
+                return ExitCode::FAILURE;
+            }
+        },
+        (None, "exec") => match host::Settings::from_json(&serde_json::json!({})) {
+            Ok(s) => s,
+            Err(e) => {
+                eprintln!("{e}");
+                return ExitCode::FAILURE;
+            }
+        },
+        (None, _) => {
+            eprintln!(
+                "没有找到配置：用 --config 指定一个，或把它放在 ~/.config/croon/config.json。\n最小的配置只有模型服务：{{\"model\": {{\"provider\": \"/绝对路径/agent-provider.json\"}}}}，见 README「上手」。"
+            );
+            return ExitCode::from(2);
         }
     };
     let sessions = match host::state_home() {

@@ -33,6 +33,8 @@ def main(topic: str, engine: Generate) -> str:
 
 Port 类型（`Generate`）从 `library.model` 导入，参数名 `engine` 就是接线的名字；要问模型就用 `generate`，不要自己 `croon.send`。
 
+Lang0 是 Python 的一个子集：构造不过时报错会说用什么代替，照着改。常见的：字符串没有 `.lower()` 之类的方法，局部变量不写类型（`x = []`，不是 `x: list = []`），没有 `set`，用 dict 的键。
+
 exec 的容器里有 python3 与 pytest，没有网络：要运行或测试代码，用 `run` 工具（如 `python3 -m pytest`）。
 
 造好（`make`）就成了你的一个工具，直接调用；它交回目录的，结果里有 `name` 与 `diff`，满意再 `merge`。

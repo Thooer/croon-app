@@ -140,19 +140,24 @@ fn recovers_at_every_commit(make: impl Fn(String) -> Rc<dyn Port>, task: &str) {
             );
             assert!(crashed.is_err(), "{label}：Kernel 应当在这里停下");
             // 磁盘在两次之间变了也不要紧：恢复用的是 Journal 里记下的输入，不读仓库。
+            // 第一个提交点之前就停下的，root entry 还没有，没有运行可续做，用户对同一个目录重新 run。
             let moved = temp.root.join("repo-moved");
             let _ = fs::remove_dir_all(&moved);
             fs::rename(&repo, &moved).unwrap();
-            let done = host::resume(
-                &settings,
-                Assembly::default(),
-                &temp.root.join(format!("{label}-out")),
-            )
-            .map(|d| {
-                fs::rename(&moved, &repo).unwrap();
-                d
-            })
-            .unwrap_or_else(|e| panic!("{label}：恢复失败：{e}"));
+            let out = temp.root.join(format!("{label}-out"));
+            let done = match host::resume(&settings, Assembly::default(), &out) {
+                Ok(done) => {
+                    fs::rename(&moved, &repo).unwrap();
+                    done
+                }
+                Err(e) if e.0.contains("用 run") => {
+                    fs::rename(&moved, &repo).unwrap();
+                    assert_eq!(n, 1, "{label}：只有第一个提交点之前才可能没有 root");
+                    host::run(&settings, Assembly::default(), &repo, task, &out)
+                        .unwrap_or_else(|e| panic!("{label}：重新 run 失败：{e}"))
+                }
+                Err(e) => panic!("{label}：恢复失败：{e}"),
+            };
             assert_eq!(done.snapshot, baseline.snapshot, "{label}");
             assert_eq!(done.summary, baseline.summary, "{label}");
             assert_eq!(summary(&temp.kernel(&system)), expected, "{label}");

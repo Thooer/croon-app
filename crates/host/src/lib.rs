@@ -405,7 +405,7 @@ fn drive(
                 "这个 Kernel 目录里已经有一次运行：续做用 resume，要重新做就换一个 Kernel 目录".into(),
             ));
         }
-        (None, None) => return Err(Error("这个 Kernel 目录里没有运行可续做：先 run".into())),
+        (None, None) => return Err(Error("这个 Kernel 目录里没有开始过的运行（可能在创建 root entry 之前就中断了）：用 run 重新开始".into())),
         (Some(root), None) => {
             let job = recorded(&kernel, &root)?;
             (root, job)

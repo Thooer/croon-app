@@ -173,7 +173,7 @@ fn run_refuses_a_directory_that_already_has_a_run_and_resume_needs_one() {
     let none = host::resume(&settings, scripted(&system), &temp.root.join("out0"))
         .err()
         .expect("没有运行可续做");
-    assert!(none.0.contains("先 run"), "{none}");
+    assert!(none.0.contains("用 run"), "{none}");
 
     host::run(&settings, scripted(&system), &repo, "修好 a.py", &temp.root.join("out1")).unwrap();
     let again = host::run(&settings, scripted(&system), &repo, "修好 a.py", &temp.root.join("out2"))

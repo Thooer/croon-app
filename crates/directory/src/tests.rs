@@ -146,7 +146,7 @@ fn finish(run: &mut dyn Execution) -> HostDone {
 #[ignore = "requires local Docker and preloaded alpine:latest; creates only unique test containers"]
 fn docker_isolates_inputs_and_returns_nonzero_stable_artifacts() {
     let f = Fixture::new("alpine:latest");
-    let value = f.request(&["/bin/sh","-c", "set -e; test $(cat /work/input) = delivered; test $(cat /mnt/readonly/input) = delivered; test ! -e /var/run/docker.sock; test ! -e /home/thooer; (touch /etc/croon-forbidden) 2>/dev/null && exit 98; echo changed > /work/input; (echo bad > /mnt/readonly/input) 2>/dev/null && exit 99; printf '%0300d' 1; echo artifact > /work/new; ln -s /etc/passwd /work/link; exit 7"],5);
+    let value = f.request(&["/bin/sh","-c", "set -e; test $(cat /work/input) = delivered; test $(cat /mnt/readonly/input) = delivered; test ! -e /var/run/docker.sock; test ! -e /home/host-user; (touch /etc/croon-forbidden) 2>/dev/null && exit 98; echo changed > /work/input; (echo bad > /mnt/readonly/input) 2>/dev/null && exit 99; printf '%0300d' 1; echo artifact > /work/new; ln -s /etc/passwd /work/link; exit 7"],5);
     let mut run = f.call("nonzero", &value).unwrap();
     let mut duplicate = f.call("nonzero", &value).unwrap();
     let done = finish(run.as_mut());

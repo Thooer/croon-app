@@ -1,0 +1,10 @@
+{
+ "category": "files",
+ "tools": [
+  {
+   "kind": "functions",
+   "package": "files"
+  }
+ ],
+ "task": "造一个 Agent，交办给它修好 a.py：add 应当返回两数之和。不要自己改 a.py。"
+}

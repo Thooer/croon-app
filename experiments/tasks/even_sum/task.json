@@ -1,0 +1,10 @@
+{
+ "category": "compute",
+ "tools": [
+  {
+   "kind": "functions",
+   "package": "files"
+  }
+ ],
+ "task": "造一个 Agent：输入一个整数列表，返回其中偶数之和。造好后用它算 [1,2,3,4,10] 的结果告诉我。不要自己算。"
+}

@@ -22,6 +22,7 @@
 
 | 想问什么 | 读哪里 |
 |---|---|
+| 怎样测真实模型的表现、任务与检查器、记录什么 | Experiments.md |
 | croon-app 是什么、当前做到哪了 | 仓库根的 README.md；进度与下一步见 Plan.md |
 | 应用由哪些部分构成、依赖什么 | 本文的「构成」；应用侧的计划见 Plan.md |
 | Directory 怎样导入、物化与执行文件 | Directory/README.md |

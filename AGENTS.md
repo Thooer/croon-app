@@ -12,6 +12,7 @@ croon-app 是建立在 croon 与 croon-lang0 之上的完整应用：模型适�
 | AGENTS.md | 本文 |
 | docs/README.md | 文档入口：部分、依赖方向、地图、名词表 |
 | docs/Plan.md | 范围、生命周期、阶段与验收；全文是打算 |
+| docs/Experiments.md | 实验：一次尝试、任务与检查器、记录、统计 |
 | docs/Directory/README.md | Directory 的文件执行服务 |
 | docs/Model/README.md | 模型服务 Port 形状 |
 | docs/Host/README.md | 宿主装配：root entry、binding、客户端 |

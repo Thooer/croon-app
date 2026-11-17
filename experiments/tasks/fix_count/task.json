@@ -1,0 +1,10 @@
+{
+ "category": "files",
+ "tools": [
+  {
+   "kind": "functions",
+   "package": "files"
+  }
+ ],
+ "task": "造一个 Agent，交办给它修好 text.py 里的 count_lines：应当返回文本的行数（空字符串是 0，末尾没有换行的最后一行也算一行）。不要自己改 text.py。"
+}

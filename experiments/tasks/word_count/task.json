@@ -1,0 +1,10 @@
+{
+ "category": "compute",
+ "tools": [
+  {
+   "kind": "functions",
+   "package": "files"
+  }
+ ],
+ "task": "造一个 Agent：输入一段文字，返回其中不同单词的个数（按空白分词，不分大小写）。造好后用它算 \"The cat and the Hat and THE bat\" 的结果告诉我。不要自己算。"
+}

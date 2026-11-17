@@ -37,7 +37,9 @@ croon-app 拥有模型适配、Directory 与 Docker 文件执行、Library 与 A
 - **场景**：Delegate 场景归本仓库，root 用 host.root，预期由 CPython 独立求出并逐条核对，见 Library/Scenarios/Delegate.md。
 - **运行中构造与交办**：W0 有三个管理器工具。`look` 只读 Library 目录，不起 exec：不给名字是 README 与各模块的一句话，给模块名是它的公开面（宿主经 `definition.infer` 的模块目录问法，从 `lang0::surface` 推出），`source=True` 是源码。`make` 收一份源码或工作区里的一个路径，经 `definition.infer`、pack、construct 构造，载入工具表，从下一轮起模型以它的名字直接调用，输入按它 main 的参数写，工作区的 `snapshot` 由工具填。清单里的 Agent（现在是 s）在启动时同样载入。`merge` 并入交回的目录。调用即实例化、经 Notify 收取结果；接线按目标声明的名字，从愿意交出的（W0 现在是 engine、exec）里取，是否恰好覆盖由 Kernel 检查；工作区只在目标的 in 或结束值里有 `snapshot` 时才介入，纯计算的主体不拿工作区。纯计算、只用模型、改文件三种主体与接线错误由 `construct`、`shapes`、`agent` 验收，预置的 s 走同一条路径（`delegation`、Delegate 场景）。W0 自带的只有管理器：Library 目录（`library/` 与 `tools.json`）作为目录 Bundle 交给它，它读清单载入函数工具包（现在是 files）与 Agent；根只构造 W0。函数工具包由宿主生成的 `library.tools` 列出。还没有名字空间：载入的工具表是 W0 里的一个列表；没有「装」，清单是启动时读一次，Library 目录也不留存。推导的设计见 Host/README.md「构造的推导」。
 
-**尚未落地**：没有上手路径，README 不写怎样建任务镜像、写 host.config、跑 `croon-app run`，`config/` 下也没有模板；需要真 Docker 的测试都标了 ignore，没有统一的跑法与前提说明，其中 `smoke` 会调用真模型。root entry 只在进程内，没有 socket 与持续对话。Library 目录不留存、结果只写进新目录、宿主只会运行 W0：设计已定，见第 2 步。
+**已落地的运行入口**：`croon-app run` 开始，`resume` 续做（关机、被杀、宿主故障之后都是这一条，任务与目录取自 Journal，录像接着追加），`exec` 直接运行一份源码，不经 W0。镜像是 `croon-work:2`（alpine、git、python3、pytest）。
+
+**尚未落地**：没有上手路径，README 不写怎样建任务镜像、写 host.config、跑 `croon-app run`，`config/` 下也没有模板；需要真 Docker 的测试都标了 ignore，没有统一的跑法与前提说明，其中 `smoke` 会调用真模型。root entry 只在进程内，没有 socket 与持续对话。Library 目录不留存、结果不写回调用方的目录：设计已定，见第 2 步。
 
 **尚无实测证据**：真实模型编写 Definition 的构造成功率、修复轮数、运行成功率和任务完成率。现有构造测试使用预写的错误与修正版源码，不代表模型能根据诊断自行修复。恢复测试覆盖的路径见「测试」。exec 开销、内容库增长、恢复重放耗时与 tombstone 积累尚未系统测量，是否构成瓶颈由实验判断。
 
@@ -106,7 +108,7 @@ croon-app 拥有模型适配、Directory 与 Docker 文件执行、Library 与 A
 - **场景**：Library 的场景预期在 Library/Scenarios/，测试拿真的 Kernel 与 Lang0、假的模型与文件执行驱动，逐提交点与逐 provider Atom 在途崩溃比对 Journal；预期由 CPython 独立求出并核对。
 - **端到端**：host 中需要真 Docker 的集成测试标了 ignore，依赖本机的 croon-work:2 与 python:3.12-slim；ignore 表示默认跳过，不表示未经运行。模型通常用脚本化或回放的，录像只在临时目录。`smoke` 调用真模型，会产生费用，目前主要断言运行完成、结果目录存在及录像不含凭据，不替代任务正确性检查。
 - **恢复覆盖**：`recovery` 覆盖预置交办与运行中造出来的主体两条路径的逐提交点中断；`kill` 覆盖 exec 在途 SIGKILL，同样两条路径；`failure` 覆盖宿主故障后修好重跑。跨 Kernel 目录比结果与记录序列，同一目录内逐字比。`construct` 验证构造后以空录像重跑，`agent` 与 `shapes` 验证文件型与别的形状的主体完成与跨系统回放。清单（`home`）在装配时检查，不需要 Docker。
-- **实验记录**：保存任务、判据、模型与说明、代码版本、修复预算、源码尝试及每轮失败的 kind 与 message。记录失败阶段、修复次数、检查结果、模型耗时与用量、exec 次数与耗时；较长任务和持续运行实验追加内容库大小、恢复时间、tombstone 数量。任务未完成、宿主故障、检查器故障分开统计。
+- **实验记录**：机制与格式见 Experiments.md。保存任务、判据、模型与说明、代码版本、修复预算、源码尝试及每轮失败的 kind 与 message。记录失败阶段、修复次数、检查结果、模型耗时与用量、exec 次数与耗时；较长任务和持续运行实验追加内容库大小、恢复时间、tombstone 数量。任务未完成、宿主故障、检查器故障分开统计。
 - **独立验收**：检查器由实验方固定，被测主体不能修改；检查实际结果的正确性，不只看退出码，必要时加超时与资源限额。失败尝试也保留记录。
 
 ## 以后的方向

@@ -23,7 +23,7 @@ croon-app 是建立在 croon 与 croon-lang0 之上的完整应用：模型适�
 | docs/Library/Presets.md | 预置 Charter 与 Application |
 | docs/Library/Scenarios/ | Library 场景检验什么：每个场景一个文件；预期本身是 block `library.scenario.<名字>` |
 | docs/Research/ | 应用侧研究线索 |
-| docs/Draft.md | 用户草稿，不是设计；AI 只在用户让读时读 |
+| docs/Roadmap.md | 还没有进入设计的方向：不是承诺，也不是已经实现的；成形后进正文并从这里删 |
 
 - 置信度由位置决定：正文是已确认的，「待定」是未决的，docs/Plan.md 全文按待定读；没确认的留在讨论里，或写成待定问题。
 - 这张表只管写到哪里，不管从哪里读；找读法看 docs/README.md 的「地图」。
@@ -97,7 +97,7 @@ croon-app 是建立在 croon 与 croon-lang0 之上的完整应用：模型适�
 
 - 出处只写在 research/。未对照原文的标「待核验」，只作线索，不作结论的依据。research/ 的正文区分研究观察与我们的推断。
 - 验证得出的结论写在结论处。验证代码放在 spike/ 下，提交到 main；验证代码不是实现。
-- 分诊：Draft.md 的条目与别的 AI 交来的调研、验证、构想，都只当线索，保意图，不保做法。逐条定归宿：按「位置」并进 docs 已有的内容；docs 已有、结构已消解它或没有价值的，删；Draft.md 的条目还不成形的，留着，写一句缺什么。指向策略的研究发现，只查机制有没有给设计者留出空间：有，只进 Research；没有，才是缺口。先给我看每条的归宿与理由，我确认后再动文件；落进 docs 之后，才从原处删掉。分诊覆盖 docs/Draft.md 与 docs/Research/，不直接把它们当设计正文。
+- 分诊：Roadmap.md 的条目与别的 AI 交来的调研、验证、构想，都只当线索，保意图，不保做法。逐条定归宿：按「位置」并进 docs 已有的内容；docs 已有、结构已消解它或没有价值的，删；Roadmap.md 的条目还不成形的，留着，写一句缺什么。指向策略的研究发现，只查机制有没有给设计者留出空间：有，只进 Research；没有，才是缺口。先给我看每条的归宿与理由，我确认后再动文件；落进 docs 之后，才从原处删掉。分诊覆盖 docs/Roadmap.md 与 docs/Research/，不直接把它们当设计正文。
 
 ### 历史
 

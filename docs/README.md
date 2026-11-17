@@ -37,7 +37,7 @@
 | 工作区是什么、谁是它的主人、怎样并入 | Library/Runtime.md 的「工作区」 |
 | Library 的某个场景应当跑出什么 Journal | Library/Scenarios/ |
 | 应用侧的证据、先例与研究线索 | Research/；内容按待核验读 |
-| 用户还没成形的想法 | Draft.md；不是设计，AI 只在用户让读时读 |
+| 还没有进入设计的方向与想法 | Roadmap.md；不是设计，不是承诺 |
 | Kernel 的保证、Reference、Journal 与 Definition | croon 的对应文档 |
 | Lang0 的写法、求值与模块 | croon-lang0 的对应文档 |
 

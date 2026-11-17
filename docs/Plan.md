@@ -35,7 +35,7 @@ croon-app 拥有模型适配、Directory 与 Docker 文件执行、Library 与 A
 - **工作区**：私有工作区收拢快照、派生与采用；并入按目录三方合并，不看提交状态，不在 /work 里生成提交，结果确定，见 Library/Runtime.md「工作区」。
 - **恢复**：每个提交点前后停下，重跑结果与记录序列相同（`recovery`）；exec 在途时 SIGKILL，旧 attempt 退役、新 attempt 重做（`kill`）；宿主故障时客户端带原因退出，修好后重跑重开接着走（`failure`）。
 - **场景**：Delegate 场景归本仓库，root 用 host.root，预期由 CPython 独立求出并逐条核对，见 Library/Scenarios/Delegate.md。
-- **运行中构造与交办**：W0 的 `delegate` 工具收一份源码、工作区里的一个路径，或一个已有的名字；经 `definition.infer`、pack、construct 构造，实例化，经 Notify 收取结果。接线按目标声明的名字，从交办一方愿意交出的（W0 现在是 engine、exec）里取，是否恰好覆盖由 Kernel 检查；工作区只在目标的 in 或结束值里有 `snapshot` 时才介入，纯计算的主体不拿工作区。纯计算、只用模型、改文件三种主体与两种接线错误由 `construct`、`shapes`、`agent` 验收，预置的 s 走同一条路径（`delegation`、Delegate 场景）。W0 自带的只有管理器：Library 目录（`library/` 与 `tools.json`）作为目录 Bundle 交给它，它读清单载入函数工具包（现在是 files）并常驻清单里的 Agent（现在是 s，第一次交办时才从Library 目录读源码构造）；根只构造 W0。函数工具包由宿主生成的 `library.tools` 列出。还没有名字空间：名字到 Definition 的表是 `delegation_tools` 里的一个字典；没有「载」「装」「看」这几个管理器操作，清单是启动时读一次。推导的设计见 Host/README.md「构造的推导」。
+- **运行中构造与交办**：W0 有三个管理器工具。`look` 只读 Library 目录，不起 exec：不给名字是 README 与各模块的一句话，给模块名是它的公开面（宿主经 `definition.infer` 的模块目录问法，从 `lang0::surface` 推出），`source=True` 是源码。`make` 收一份源码或工作区里的一个路径，经 `definition.infer`、pack、construct 构造，载入工具表，从下一轮起模型以它的名字直接调用，输入按它 main 的参数写，工作区的 `snapshot` 由工具填。清单里的 Agent（现在是 s）在启动时同样载入。`merge` 并入交回的目录。调用即实例化、经 Notify 收取结果；接线按目标声明的名字，从愿意交出的（W0 现在是 engine、exec）里取，是否恰好覆盖由 Kernel 检查；工作区只在目标的 in 或结束值里有 `snapshot` 时才介入，纯计算的主体不拿工作区。纯计算、只用模型、改文件三种主体与接线错误由 `construct`、`shapes`、`agent` 验收，预置的 s 走同一条路径（`delegation`、Delegate 场景）。W0 自带的只有管理器：Library 目录（`library/` 与 `tools.json`）作为目录 Bundle 交给它，它读清单载入函数工具包（现在是 files）与 Agent；根只构造 W0。函数工具包由宿主生成的 `library.tools` 列出。还没有名字空间：载入的工具表是 W0 里的一个列表；没有「装」，清单是启动时读一次，Library 目录也不留存。推导的设计见 Host/README.md「构造的推导」。
 
 **尚未落地**：没有上手路径，README 不写怎样建任务镜像、写 host.config、跑 `croon-app run`，`config/` 下也没有模板；需要真 Docker 的测试都标了 ignore，没有统一的跑法与前提说明，其中 `smoke` 会调用真模型。root entry 只在进程内，没有 socket 与持续对话。Library 目录不留存、结果只写进新目录、宿主只会运行 W0：设计已定，见第 2 步。
 
@@ -54,7 +54,7 @@ croon-app 拥有模型适配、Directory 与 Docker 文件执行、Library 与 A
    - S 与造出来的主体走同一条交办路径：Delegate 场景的 CPython 核对与逐提交点、逐 Atom 在途的崩溃测试于是覆盖通用路径；`host::run` 不再构造 S，W0 不再收 `worker`。
    - 判据：纯计算（无目录、无模型）、只用模型、改文件三种主体都能构造、交办、收回结果；接不上与规格不同的接线以可读的错误回到模型；制造路径（infer、pack、construct、instantiate、收取）逐提交点中断后重跑结果相同，造出来的主体 exec 在途时 SIGKILL 能恢复。
 2. **包与管理器**：设计见 Library/Packages.md、Library/Runtime.md「工具」「交办」与 Host/README.md「装配」「运行哪一个 Definition」「结果与采用」。它是第 3 步的基线。目标是拿到真实模型下制造闭环的证据，所以先做直接决定模型能不能造的那一线，留存与使用随后，不降级、不做半版：
-   1. **制造能力（先做）**：croon-lang0 补「枚举模块公开面并推导」的公开 API 并写进它的头部；索引的形状做成 block，推导 Port 的模块目录输入返回它；Library 拆成包（核心库一个包，W0、s 各是主体包，入口 main.py），各带 README；管理器的看、载作为 W0 的工具；载入的 Agent 是原生工具，`delegate(agent, input)` 去掉。Delegate 场景与 CPython 核对同步。判据：不看源码仓库，模型只靠「看」能说出某个包怎样用，并据此写出能过构造的主体。之后花很少的钱再摸一次底，与第一次对照。
+   1. **制造能力（先做）**：croon-lang0 的 `modules` 与 `surface`（已做）与宿主推导 Port 的模块目录问法（已做）；管理器的 look、make（已做，`载` 目前随 make 与清单，没有单独的工具）；Library 拆成包（核心库一个包，W0、s 各是主体包，入口 main.py），各带 README；管理器的看、载作为 W0 的工具；载入的 Agent 是原生工具，`delegate(agent, input)` 去掉。Delegate 场景与 CPython 核对同步。判据：不看源码仓库，模型只靠「看」能说出某个包怎样用，并据此写出能过构造的主体。之后花很少的钱再摸一次底，与第一次对照。
    2. **第一轮实验**：即第 3 步，在 1 之上跑，证据决定 1 往哪调。
    3. **留存与使用（随后）**：Library 目录在磁盘上、路径在配置里，改动经采用写回，不分层；管理器的「装」；宿主运行任意 Definition，输入与结果照它的 Signature；任务目录与 Library 目录默认只交回，采用是另一步，三方合并写回、不写回 .git；恢复时输入取自 Journal。判据：装的包、造的主体经采用后下一次运行还在；命令行运行任意 Definition，目录不被改动，采用一步写回且冲突时不动。
    - 目录字段的声明（croon 的 Bundle 字段）只影响多目录，有双目录场景时再动；之前按字段名 `snapshot` 认。

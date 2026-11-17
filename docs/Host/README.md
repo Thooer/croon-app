@@ -76,7 +76,7 @@ Required port 在诞生时写定，运行中再接新东西是 Kernel 的待定�
 
 ## 构造的推导
 
-`definition.infer` 是宿主的推导 Port，纯计算，没有世界效果，通道是可丢弃的。它有两种输入：Definition 草稿的 body，推出 Interface；模块目录，推出各模块的公开面索引，见 ../Library/Packages.md「包」。后者要 croon-lang0 补一个公开 API，是上游的缺口。下面写前一种。它不建立构造事实：construct 会把推出的 Interface 与 Definition 里写的按规范文本比对，推错也过不了构造，Kernel 不把宿主的推导当成事实。
+`definition.infer` 是宿主的推导 Port，纯计算，没有世界效果，通道是可丢弃的。它有三种问法：Definition 草稿的 body，推出 Interface；模块目录，列出其中的模块与各自的一句话；模块目录加一个模块名，推出它的公开面（croon-lang0 的 block `lang0.surface`），后两种是 Library「看」的材料，见 ../Library/Packages.md「包」。公开面不落盘，每次现推，所以与代码永远对得上。下面写第一种。它不建立构造事实：construct 会把推出的 Interface 与 Definition 里写的按规范文本比对，推错也过不了构造，Kernel 不把宿主的推导当成事实。
 
 形状是 `definition.infer`。
 

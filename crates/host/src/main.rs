@@ -171,7 +171,7 @@ fn main() -> ExitCode {
         }
     };
     // resume 的会话要先存在：名字拼错的人该先知道「找不到」，不是先被要求给 --out。
-    if resuming && !session.kernel.join("journal.db").is_file() {
+    if resuming && host::session_state(&session) == host::SessionState::Missing {
         let others = host::list_sessions(&sessions);
         let hint = if others.is_empty() {
             "这台机器上还没有别的会话".to_owned()

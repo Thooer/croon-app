@@ -215,13 +215,59 @@ pub fn default_config() -> Option<PathBuf> {
     path.is_file().then_some(path)
 }
 
+/// 一个会话在磁盘上到哪一步了。只读：不建目录、不开录像、不打开 Kernel，查询没有副作用。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SessionState {
+    /// 没有这个会话：连 Kernel 目录都没有。
+    Missing,
+    /// 有 Kernel 目录，但 root entry 还没创建：创建之前就中断了，没有东西丢失，可以重新 `run`。
+    Empty,
+    /// root entry 已经创建，有一次运行（结束与否看 Journal）。
+    Started,
+}
+
+/// 看一个会话是什么状态。`journal.db` 在打开 Kernel 时就建出来，所以「有这个文件」不等于「开始了」：
+/// 要看里面有没有 root entry，即第一条 `by` 为 `outside` 的诞生记录。
+pub fn session_state(session: &Session) -> SessionState {
+    let db = session.kernel.join("journal.db");
+    if !db.is_file() {
+        return if session.kernel.exists() {
+            SessionState::Empty
+        } else {
+            SessionState::Missing
+        };
+    }
+    let started = kernel::journal::Journal::open(&db)
+        .and_then(|journal| journal.all())
+        .map(|all| {
+            all.iter()
+                .flat_map(|(_, records)| records.iter())
+                .any(|record| record["by"] == "outside" && record["what"].get("birth").is_some())
+        })
+        .unwrap_or(false);
+    if started {
+        SessionState::Started
+    } else {
+        SessionState::Empty
+    }
+}
+
 /// `sessions` 目录下有哪些会话，按最近修改在前。目录不存在就是没有，不会因为看一眼而建出来。
 pub fn list_sessions(sessions: &Path) -> Vec<String> {
     let mut found: Vec<(std::time::SystemTime, String)> = std::fs::read_dir(sessions)
         .into_iter()
         .flatten()
         .flatten()
-        .filter(|e| e.path().join("kernel/journal.db").is_file())
+        .filter(|e| {
+            let dir = e.path();
+            let session = Session {
+                name: String::new(),
+                kernel: dir.join("kernel"),
+                state: dir.join("state"),
+                cassette: dir.join("cassette.json"),
+            };
+            session_state(&session) == SessionState::Started
+        })
         .filter_map(|e| {
             let modified = e.metadata().ok()?.modified().ok()?;
             Some((modified, e.file_name().to_string_lossy().into_owned()))
@@ -582,16 +628,16 @@ fn drive(
         None => settings.session(None, &state_home()?.join("sessions"))?,
     };
     // 先看这个会话是什么状态，再决定做什么：判断没有任何副作用，所以拼错名字不会留下东西，
-    // 重复的名字也不会先去碰录像。有 journal.db 就是开始过。
-    let started = session.kernel.join("journal.db").is_file();
-    match (started, resuming) {
-        (true, false) => {
+    // 重复的名字也不会先去碰录像。「开始过」指 root entry 已经创建，不是目录在。
+    let state = session_state(&session);
+    match (state, resuming) {
+        (SessionState::Started, false) => {
             return Err(Error(format!(
                 "会话 {0} 里已经有一次运行：续做用 resume --session {0}，要做新的就换一个会话名（不给 --session 会自己取一个）",
                 session.name
             )));
         }
-        (false, true) => {
+        (SessionState::Missing, true) => {
             let others = list_sessions(session.kernel.parent().and_then(Path::parent).unwrap_or(Path::new("")));
             let hint = if others.is_empty() {
                 "这台机器上还没有别的会话".to_owned()

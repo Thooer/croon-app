@@ -35,12 +35,14 @@
 
 ## 上手
 
-**需要**：Linux、Docker、Python 3、Rust（stable），一个 OpenAI 兼容的模型服务和它的密钥。三个仓库要并排放在同一个目录下：
+**最短的说法**：给它一个仓库目录和一句话，它在隔离的容器里改，把改好的**整份目录**放到你指定的新位置，你的仓库不动。你再自己对比、拿走。
+
+**需要**：Linux、Docker、Python 3、curl、Rust（stable），一个 OpenAI 兼容的模型服务和它的密钥。三个仓库要并排放在同一个目录下：
 
 ```
 任意目录/
-  croon/          Kernel：https://github.com/Thooer/croon
-  croon-lang0/    Lang0：https://github.com/Thooer/croon-lang0
+  croon/          https://github.com/Thooer/croon
+  croon-lang0/    https://github.com/Thooer/croon-lang0
   croon-app/      本仓库
 ```
 
@@ -51,23 +53,30 @@ cd croon-app
 cargo build
 ```
 
-**2. 建任务镜像**（主体的命令在里面跑，没有网络；镜像里有 git、python3、pytest）
+**2. 建镜像**。主体的命令在容器里跑，容器没有网络；任务镜像里有 git、python3、pytest、ripgrep。另一个镜像用来在命令结束后采集产物：
 
 ```
 docker build -t croon-work:2 -f crates/directory/images/work.Dockerfile crates/directory/images
-docker pull python:3.12-slim          # 采集产物用的可信镜像
+docker pull python:3.12-slim
 ```
 
-官方源慢时，建镜像可以换源：`--build-arg ALPINE_MIRROR=https://mirrors.aliyun.com/alpine`。
+`docker pull` 走的是 Docker Hub，慢的话（我们遇到过 5 分钟）要给 Docker 配 registry mirror，与本项目无关；`docker images python` 能看到是否已经有。建任务镜像时包源慢，可以换：`--build-arg ALPINE_MIRROR=https://mirrors.aliyun.com/alpine`。
 
-**3. 写配置**
+**3. 写两份配置**
 
 ```
 cp config/agent-provider.example.json config/agent-provider.json     # 填 base_url、api_key、model
-cp config/host.example.json /某处/host.json                           # 把里面的「/绝对路径」都改掉
+cp config/host.example.json /某处/host.json                           # 把里面的「/绝对路径」都改成真实的
 ```
 
-`config/agent-provider*.json` 已被 .gitignore 排除，密钥不会进 Git。host.json 里的路径都要写绝对路径，kernel 与 state 目录会自己创建。
+`agent-provider.json` 是模型服务的地址、密钥与模型名。`config/agent-provider*.json` 已被 .gitignore 排除，密钥不会进 Git。
+
+`host.json` 里的字段分两类：
+
+- **这一次运行的**：`system`（名字）、`kernel`、`directory.state`、`model.record`（录像）。**每开一个新任务都要换成新的**，否则会报「这个 Kernel 目录里已经有一次运行」。同一个 `kernel` 目录里只有一次运行。
+- **这台机器的**：镜像名、`cpus`、`memory_bytes` 与其余几项上限，保持示例里的值即可；`image` 要与上一步建的镜像同名。
+
+路径都要写绝对路径；`kernel` 与 `state` 目录会自己创建，`record` 的录像文件不能已经存在。
 
 **4. 跑一个任务**
 
@@ -77,20 +86,37 @@ target/debug/croon-app run --config /某处/host.json --repo /tmp/demo/repo --ou
   "a.py 里的 add 应当返回两数之和，修好它"
 ```
 
-结果在 `/tmp/demo/out`，你的仓库不会被改。一次 `run` 要调用几次模型，会产生费用。中途断了：
+大约十几秒到一两分钟，**运行时终端不会输出任何东西**，结束时打印它的总结。结果在 `/tmp/demo/out`，是整份目录（含 `.git`），**不会**写回你的仓库。要看改了什么：
+
+```
+diff -ru /tmp/demo/repo /tmp/demo/out
+```
+
+注意总结里的文件链接（`/work/a.py`）是容器里的路径，不是你机器上的。一次 `run` 要调用几次模型，会产生费用；`model.record` 指向的录像文件里能看到每次往来和 token 用量。
+
+**5. 中断了怎么办**。被杀、关机、模型服务断连之后，对同一份配置 `resume`，接着做，不重做已经完成的；任务与目录取自它自己的记录，不用再给：
 
 ```
 target/debug/croon-app resume --config /某处/host.json --out /tmp/demo/out2
 ```
 
-**5. 不要模型也能试**：`exec` 直接运行一份 Lang0 源码，不调用模型。host.json 的 `model` 写成 `{"replay": "/某处/empty.json"}`，`empty.json` 的内容是 `{"entries":[]}`：
+`--out` 要是还不存在或空的目录。已经结束的运行再 `resume` 得到同样的结果。
+
+**6. 不要模型也能试**：`exec` 直接运行一份 Lang0 源码。它有**自己的** Kernel 目录，所以**要另写一份配置**：把第 3 步的 `host.json` 复制一份 `host-exec.json`，改 `system`、`kernel`、`directory.state` 三项为新的值，`model` 一项改成 `{"replay": "/某处/empty.json"}`（文件内容是 `{"entries":[]}`）。
 
 ```
 printf 'def main(n: int) -> int:\n    return n + 1\n' > /tmp/demo/m.py
-target/debug/croon-app exec --config /某处/host.json --source /tmp/demo/m.py --input '{"n":41}' --out /tmp/demo/o
+target/debug/croon-app exec --config /某处/host-exec.json --source /tmp/demo/m.py --input '{"n":41}' --out /tmp/demo/o
 ```
 
-输出 `42`。
+打印 `42`。`--out` 必须给，但这个例子没有目录产物，不会建出 `/tmp/demo/o`。
+
+## 常见问题
+
+- **`docker ps -a` 里留下很多 `croon-exec-…` 的 Created 容器**：这是设计，不是泄漏。每次文件执行留下两份只占名字的空容器，用来保证一个已经作废的执行不会被迟到的启动复活；它们不运行、几乎不占资源。不要手动删除正在运行的任务相关的那几个；确认没有运行中的任务之后，`docker rm $(docker ps -aq --filter label=croon.provider)` 可以清掉。见 docs/Directory/README.md「实现」。
+- **模型有时先去找 `rg`**：镜像里已经装了。写文件时父目录不存在会失败，模型会自己改正。
+- **进度看不到**：现在没有。运行时可以看录像文件（`model.record`）里的条目数增长，或者 `docker ps` 看有没有容器在跑。
+- **报错「这个 Kernel 目录里已经有一次运行」**：你复用了上一次的 `kernel`。要继续它用 `resume`；要新任务换一个新目录与新的 `system`。
 
 ## 测试
 

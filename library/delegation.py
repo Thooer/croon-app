@@ -7,9 +7,8 @@
 from typing import Any, Callable
 import croon
 from croon import Inbox
-from library.kernel import Construct, Instantiate, Pack
-from library.infer import Infer
 from library.directory import Exec
+from library.kernel import Pack
 from library.agents import Done, build, infer_interface, interface_of, run_agent, unsupplied
 from library.workspace import Workspace, adopt, entry, execute, fork, offer, read_text_at, tree
 
@@ -47,14 +46,18 @@ def _source(ws: Workspace, pack: Pack, modules: str, path: str) -> Any:
     return [main, packed["id"]]
 
 
-def delegation_tools(ws: Workspace, home: Workspace, exec: Exec, instantiate: Instantiate, supply: Any,
-                     back: Done, done: Inbox(Done), pack: Pack, construct: Construct, infer: Infer,
-                     listed: Any) -> list[Callable]:
+def delegation_tools(ws: Workspace, home: Workspace, exec: Exec, ports: Any, back: Done,
+                     done: Inbox(Done), supply: Any, listed: Any) -> list[Callable]:
     """交办与并入两个工具。
 
-    ws 是仓库的工作区，home 是家目录的；supply 是交办的一方愿意交出的 Port；listed 是清单里常驻的 Agent，
-    名字到它在家目录里的源码路径，第一次交办时才构造。
+    ws 是仓库的工作区，home 是家目录的；ports 是交办自己要用的 Kernel Port：instantiate、pack、construct、
+    infer；supply 是愿意交给被交办主体的 Port，持有不等于全部转交；listed 是清单里常驻的 Agent，名字到它在
+    家目录里的源码路径，第一次交办时才构造。
     """
+    pack = ports["pack"]
+    construct = ports["construct"]
+    infer = ports["infer"]
+    instantiate = ports["instantiate"]
     agents = {}
 
     def make(name: str, source: str, mods: str) -> str:

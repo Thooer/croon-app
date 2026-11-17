@@ -32,15 +32,44 @@ pub const SOURCES: &[(&str, &str)] = &[
 /// 默认的工具清单，源码在仓库根的 home/tools.json，编进二进制。
 pub const HOME_TOOLS: &str = include_str!("../../../home/tools.json");
 
-/// 把默认工具清单写成家目录里的 tools.json：规范文本，W0 用 `croon.read_json` 读它。
-pub fn install_home_tools(output: impl AsRef<Path>) {
-    let tools: Json = serde_json::from_str(HOME_TOOLS).unwrap();
-    croon_eval::schema::validate(&crate::schema("home.tools"), &tools).unwrap();
+/// 校验一份工具清单：形状对，函数工具包在 [`TOOL_PACKAGES`] 里，Agent 的路径是库里的手写模块。
+/// 清单里写错的名字与路径在装配时就报，不等 W0 运行到才发现。
+pub fn check_tools(tools: &Json) -> Result<(), String> {
+    croon_eval::schema::validate(&crate::schema("home.tools"), tools)
+        .map_err(|e| format!("home.tools: {e:?}"))?;
+    for item in tools["tools"].as_array().into_iter().flatten() {
+        if item["kind"] == "functions" {
+            let package = item["package"].as_str().unwrap_or_default();
+            if !TOOL_PACKAGES.contains(&package) {
+                return Err(format!("清单里的函数工具包 {package} 不在 library.tools 里"));
+            }
+        } else {
+            let path = item["path"].as_str().unwrap_or_default();
+            let known = path
+                .strip_prefix("library/")
+                .is_some_and(|name| SOURCES.iter().any(|(n, _)| *n == name));
+            if !known {
+                return Err(format!("清单里的 Agent {path} 不是库里的手写模块"));
+            }
+        }
+    }
+    Ok(())
+}
+
+/// 把工具清单写成家目录里的 tools.json：规范文本，W0 用 `croon.read_json` 读它；先 [`check_tools`]。
+pub fn write_home_tools(output: impl AsRef<Path>, tools: &Json) -> Result<(), String> {
+    check_tools(tools)?;
     fs::write(
         output.as_ref().join("tools.json"),
-        croon_eval::value::canonical(&tools).unwrap(),
+        croon_eval::value::canonical(tools).map_err(|e| e.to_string())?,
     )
-    .unwrap();
+    .map_err(|e| e.to_string())
+}
+
+/// 默认清单写进家目录。
+pub fn install_home_tools(output: impl AsRef<Path>) {
+    let tools: Json = serde_json::from_str(HOME_TOOLS).unwrap();
+    write_home_tools(output, &tools).unwrap();
 }
 
 /// 一个手写模块的源码。

@@ -11,7 +11,7 @@ use std::fs;
 use std::process::{Command, Stdio};
 use std::rc::Rc;
 use std::time::{Duration, Instant};
-use support::{Temp, llm, prefix};
+use support::{Making, Temp, llm, prefix};
 
 const COMMAND: &str = "sleep 10; echo slow > s.txt";
 
@@ -82,29 +82,21 @@ fn croon_app(
     command
 }
 
-#[test]
-#[ignore = "requires local Docker with croon-work:1 and python:3.12-slim"]
-fn killing_the_host_during_an_exec_retires_the_attempt_and_redoes_it() {
+/// 在 exec 在途时 SIGKILL，用同一个 Kernel 目录与 state 目录重跑；`make` 造这一轮的脚本化模型，
+/// 成功之后结果目录里要有 `expect` 这个文件、内容是 `content`。
+fn kills_during_an_exec(make: impl Fn(String) -> Rc<dyn Port>, task: &str, expect: &str, content: &str) {
     let temp = Temp::new();
     let repo = temp.root.join("repo");
     fs::create_dir(&repo).unwrap();
     fs::write(repo.join("a.py"), "x\n").unwrap();
-    let task = "慢慢写 s.txt";
 
     // 基线：进程内用慢模型边跑边录。
     let first = temp.system("record");
     let cassette = temp.root.join("cassette.json");
     let settings =
         host::Settings::load(&temp.config(&first, &temp.root.join("unused.json"))).unwrap();
-    let recorder: Rc<dyn Port> = Rc::new(
-        model::Recorder::new(
-            Rc::new(Slow {
-                identity: format!("{first}/model"),
-            }),
-            &cassette,
-        )
-        .unwrap(),
-    );
+    let recorder: Rc<dyn Port> =
+        Rc::new(model::Recorder::new(make(format!("{first}/model")), &cassette).unwrap());
     let assembly = host::Assembly {
         model: Some(recorder),
         fault: None,
@@ -157,7 +149,7 @@ fn killing_the_host_during_an_exec_retires_the_attempt_and_redoes_it() {
         stdout.contains(&baseline.snapshot),
         "结果快照与不崩时相同：{stdout}"
     );
-    assert_eq!(fs::read_to_string(out.join("s.txt")).unwrap(), "slow\n");
+    assert_eq!(fs::read_to_string(out.join(expect)).unwrap(), content);
 
     let state = temp.root.join(format!("state-{system}"));
     let sealed = fs::read_dir(&state)
@@ -179,4 +171,27 @@ fn killing_the_host_during_an_exec_retires_the_attempt_and_redoes_it() {
     );
     let running = docker(&["ps", "-q", "--filter", &label, "--filter", "status=running"]);
     assert!(running.trim().is_empty(), "不应有存活的容器：{running}");
+}
+
+#[test]
+#[ignore = "requires local Docker with croon-work:1 and python:3.12-slim"]
+fn killing_the_host_during_an_exec_retires_the_attempt_and_redoes_it() {
+    kills_during_an_exec(
+        |identity| Rc::new(Slow { identity }),
+        "慢慢写 s.txt",
+        "s.txt",
+        "slow\n",
+    );
+}
+
+/// 造出来的主体在跑慢命令时被杀：它的 exec 是另一个 Instance 发的，旧 attempt 照样退役、新 attempt 重做。
+#[test]
+#[ignore = "requires local Docker with croon-work:1 and python:3.12-slim"]
+fn killing_the_host_during_a_made_agents_exec_retires_the_attempt_and_redoes_it() {
+    kills_during_an_exec(
+        |identity| Rc::new(Making { identity, slow: true }),
+        "造一个 Agent 修好 a.py",
+        "s.txt",
+        "slow\n",
+    );
 }

@@ -16,7 +16,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
 use std::path::Path;
 use std::rc::Rc;
-use support::{Scripted, Temp};
+use support::{Making, Scripted, Temp};
 
 /// 只数提交，不让 Kernel 停下。
 fn counter(count: Rc<Cell<usize>>) -> FaultHook {
@@ -90,30 +90,20 @@ fn summary(dir: &Path) -> BTreeMap<String, Vec<Vec<String>>> {
     out
 }
 
-#[test]
-#[ignore = "requires local Docker with croon-work:1 and python:3.12-slim; runs the task once per commit point"]
-fn the_host_recovers_at_every_commit_with_the_same_result() {
+/// 逐提交点崩溃再恢复；`make` 造这一轮的脚本化模型。
+fn recovers_at_every_commit(make: impl Fn(String) -> Rc<dyn Port>, task: &str) {
     let temp = Temp::new();
     let repo = temp.root.join("repo");
     fs::create_dir(&repo).unwrap();
     fs::write(repo.join("a.py"), "broken\n").unwrap();
-    let task = "修好 a.py";
 
-    // 基线：脚本化模型边跑边录，走三方合并路径，数出提交的个数。
+    // 基线：脚本化模型边跑边录，数出提交的个数。
     let first = temp.system("record");
     let cassette = temp.root.join("cassette.json");
     let settings =
         host::Settings::load(&temp.config(&first, &temp.root.join("unused.json"))).unwrap();
-    let recorder: Rc<dyn Port> = Rc::new(
-        model::Recorder::new(
-            Rc::new(Scripted {
-                identity: format!("{first}/model"),
-                three_way: true,
-            }),
-            &cassette,
-        )
-        .unwrap(),
-    );
+    let recorder: Rc<dyn Port> =
+        Rc::new(model::Recorder::new(make(format!("{first}/model")), &cassette).unwrap());
     let commits = Rc::new(Cell::new(0));
     let assembly = Assembly {
         model: Some(recorder),
@@ -160,4 +150,33 @@ fn the_host_recovers_at_every_commit_with_the_same_result() {
             assert_eq!(summary(&temp.kernel(&system)), expected, "{label}");
         }
     }
+}
+
+#[test]
+#[ignore = "requires local Docker with croon-work:1 and python:3.12-slim; runs the task once per commit point"]
+fn the_host_recovers_at_every_commit_with_the_same_result() {
+    recovers_at_every_commit(
+        |identity| {
+            Rc::new(Scripted {
+                identity,
+                three_way: true,
+            })
+        },
+        "修好 a.py",
+    );
+}
+
+/// 造出来的主体：源码是模型写的，infer、pack、construct、instantiate、收取每一步前后停下都能恢复。
+#[test]
+#[ignore = "requires local Docker with croon-work:1 and python:3.12-slim; runs the task once per commit point"]
+fn the_host_recovers_at_every_commit_when_the_agent_is_made_on_the_way() {
+    recovers_at_every_commit(
+        |identity| {
+            Rc::new(Making {
+                identity,
+                slow: false,
+            })
+        },
+        "造一个 Agent 修好 a.py",
+    );
 }

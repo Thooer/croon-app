@@ -17,13 +17,16 @@ pub struct Temp {
 
 impl Temp {
     pub fn new() -> Self {
+        // 同一个测试进程里的两个测试可能在同一纳秒创建目录，所以加一个进程内的序号。
+        static NEXT: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
         let unique = format!(
-            "{}-{}",
+            "{}-{}-{}",
             std::process::id(),
             std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
                 .unwrap()
-                .as_nanos()
+                .as_nanos(),
+            NEXT.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
         );
         let root = std::env::temp_dir().join(format!("croon-host-test-{unique}"));
         fs::create_dir(&root).unwrap();
@@ -188,6 +191,83 @@ struct Ready(HostDone);
 impl Execution for Ready {
     fn collect(&mut self) -> Result<Option<HostDone>, HostError> {
         Ok(Some(self.0.clone()))
+    }
+}
+
+/// 造出来的主体的剧本：W0 在一次 delegate 里造一个会改文件的 Agent 并交办，再并入；
+/// 造出来的 Agent 写一个文件，`slow` 时它先跑一条慢命令，exec 在途的时间窗口因此够长。
+/// 它的源码是 W0 自己写的，不在家目录里，所以 infer、pack、construct、instantiate 这条路都从头走。
+pub struct Making {
+    pub identity: String,
+    pub slow: bool,
+}
+
+const MAKER: &str = r#"from typing import TypedDict
+import croon
+from library.model import Generate
+from library.directory import Exec
+from library.files import file_tools
+from library.react import react
+from library.workspace import workspace
+
+Out = TypedDict("Out", {"summary": str, "snapshot": str})
+
+
+def main(task: str, snapshot: str, engine: Generate, exec: Exec) -> Out:
+    """改一处代码，交回总结与改过的 Bundle。
+
+    Args:
+        task: 要做的事。
+    """
+    ws = workspace(snapshot)
+    summary = react(engine, file_tools(exec, ws), [{"role": "user", "text": task}],
+                    "你在 /work 里改代码，改完用一句话说清。")
+    return croon.deliver({"summary": summary, "snapshot": ws["current"]}, [ws["current"]])
+"#;
+
+impl Making {
+    fn answer(&self, request: &Json) -> Json {
+        let messages = request["messages"].as_array().unwrap();
+        let turn = messages.len() / 2;
+        let w0 = request["system"].as_str().unwrap().contains("W0");
+        let call = |name: &str, input: Json| {
+            llm("", json!([{"id": format!("c{}", turn + 1), "name": name, "input": input}]))
+        };
+        if w0 {
+            match turn {
+                0 => call(
+                    "delegate",
+                    json!({"agent": "maker", "source": MAKER, "input": {"task": "修好 a.py"}}),
+                ),
+                1 => call("merge", json!({"name": "maker"})),
+                _ => llm("已造好并修好 a.py", json!([])),
+            }
+        } else {
+            match (self.slow, turn) {
+                (true, 0) => call("run", json!({"command": "sleep 8; echo slow > s.txt"})),
+                (true, 1) | (false, 0) => {
+                    call("write_file", json!({"path": "a.py", "content": "fixed\n"}))
+                }
+                _ => llm("改好了 a.py", json!([])),
+            }
+        }
+    }
+}
+
+impl Port for Making {
+    fn id(&self) -> &str {
+        &self.identity
+    }
+    fn channel(&self) -> Channel {
+        Channel::Discardable
+    }
+    fn start(&self, call: &Call) -> Result<Box<dyn Execution>, HostError> {
+        Ok(Box::new(Ready(HostDone {
+            outcome: self.answer(call.value),
+        })))
+    }
+    fn retire(&self, _attempt: &str) -> Result<(), HostError> {
+        Ok(())
     }
 }
 

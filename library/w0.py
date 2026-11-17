@@ -39,7 +39,8 @@ def main(task: str, home: str, snapshot: str, engine: Generate, exec: Exec, inst
             name = item["name"]
             listed[name] = item["path"]
             lines.append(f"- {name}：{item['description']}")
-    tools = tools + delegation_tools(ws, mine, exec, instantiate, supply, back, done, pack, construct, infer, listed)
+    ports = {"instantiate": instantiate, "pack": pack, "construct": construct, "infer": infer}
+    tools = tools + delegation_tools(ws, mine, exec, ports, back, done, supply, listed)
     system = SYSTEM + "\n现成的 Agent：\n" + "\n".join(lines)
     summary = react(engine, tools, [{"role": "user", "text": task}], system)
     return croon.deliver({"summary": summary, "snapshot": ws["current"]}, [ws["current"]])

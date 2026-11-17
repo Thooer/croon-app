@@ -8,8 +8,6 @@ use serde_json::{Value as Json, json};
 use std::fs;
 use support::{Temp, llm};
 
-const SCENARIO: &str = include_str!("../schema/library.scenario.delegate.json");
-
 #[test]
 #[ignore = "requires local Docker with croon-work:1 and python:3.12-slim"]
 fn w0_runs_with_a_replayed_model_and_real_docker_and_recovers_from_the_journal() {
@@ -20,7 +18,7 @@ fn w0_runs_with_a_replayed_model_and_real_docker_and_recovers_from_the_journal()
     fs::write(repo.join("a.py"), "broken\n").unwrap();
 
     // W0 自己写文件，不交办：请求里没有 git diff 的真实输出，录像能事先写定。
-    let scenario: Json = serde_json::from_str(SCENARIO).unwrap();
+    let scenario: Json = host::schema("library.scenario.delegate");
     let first_request = &scenario["values"]["sha256:lw0send0"];
     let task = "把 a.py 改成 fixed";
     let call =

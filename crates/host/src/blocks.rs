@@ -21,6 +21,13 @@ pub static BLOCKS: &[Block] = &[
         line: 0,
     },
     Block {
+        name: "library.scenario.delegate",
+        lang: "json",
+        text: include_str!("../schema/library.scenario.delegate.json"),
+        file: "crates/host/schema/library.scenario.delegate.json",
+        line: 0,
+    },
+    Block {
         name: "definition.infer",
         lang: "json",
         text: r#"{

@@ -5,7 +5,7 @@
 - library/ 与生成模块都取自本仓库：生成模块由 `cargo run -p host --example generate_library` 写进临时目录。
 - croon 的 CPython 参考实现取自并排放置的 croon-lang0（crates/lang0/cpython/croon.py），语义只有那一个出处。
 
-预期是 crates/host/schema/library.scenario.delegate.json，它检验什么见 docs/Library/Scenarios/Delegate.md；Kernel 与 Lang0 是被测实现，这里不用它们。
+预期是 block library.scenario.delegate（`cargo run --example block` 展开 `$block` 后读它），它检验什么见 docs/Library/Scenarios/Delegate.md；Kernel 与 Lang0 是被测实现，这里不用它们。
 一致时打印 ok；不一致时打印差异并以非零退出。
 """
 import importlib
@@ -19,9 +19,8 @@ import tempfile
 HERE = pathlib.Path(__file__).resolve().parent
 ROOT = HERE.parents[2]
 LANG0 = ROOT.parent / "croon-lang0" / "crates" / "lang0" / "cpython"
-SCENARIO = ROOT / "crates" / "host" / "schema" / "library.scenario.delegate.json"
 # 场景与 croon 的共享场景用同一个名字空间：本场景没定义的占位符（如 sha256:empty）在那里。
-SHARED = ROOT.parent / "croon" / "crates" / "scenarios" / "schema" / "scenario.reconnect.json"
+SHARED = "scenario.reconnect"
 
 work = pathlib.Path(tempfile.mkdtemp())
 shutil.copytree(ROOT / "library", work / "library")
@@ -38,6 +37,14 @@ def loader(name):
 
 
 croon.LOADER = loader
+
+
+def block(name):
+    """一份 block，`$block` 已展开；场景的 block 在 croon 的 scenarios crate。"""
+    example = "block" if name.startswith("library.") else "block_shared"
+    out = subprocess.run(["cargo", "run", "-q", "--offline", "-p", "host", "--example", example, "--", name],
+                         cwd=ROOT, check=True, capture_output=True, text=True).stdout
+    return json.loads(out)
 
 
 def ok(value, attach=None, derived=None, dependencies=[]):
@@ -97,8 +104,8 @@ for name, (results, inp, refs, inboxes) in SCRIPTS.items():
 
 # ---- 与场景预期核对 ----
 
-expected = json.loads(SCENARIO.read_text())
-values = {**json.loads(SHARED.read_text())["values"], **expected["values"]}
+expected = block("library.scenario.delegate")
+values = {**block(SHARED)["values"], **expected["values"]}
 
 
 def resolve(v):

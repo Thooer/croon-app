@@ -34,8 +34,7 @@ fn library_root() -> Temp {
 
 fn fixture() -> (Rc<Scn>, Setup, Temp) {
     let root = library_root();
-    let fixture: serde_json::Value =
-        serde_json::from_str(include_str!("../schema/library.scenario.delegate.json")).unwrap();
+    let fixture = host::schema("library.scenario.delegate");
     let mut all = scenario::all();
     all.push(("library.scenario.delegate", fixture.clone()));
     // root entry 用 app 自己的 host.root（场景里的 sha256:lroot），不借 croon 共享场景的 root。

@@ -1,9 +1,13 @@
 //! `definition.infer`：宿主的纯计算 Port，从 Definition 草稿的 body 推出 Interface。
 //! 它不建立构造事实：construct 会把推出的 Interface 与 Definition 里写的重新核对，这里推错也过不了。
 //!
+//! 同一个 Port 也答模块目录的问题：`{modules, module?}` 不给 module 时列出目录里的模块与各自 docstring 的第一行，
+//! 给了就推那个模块的公开面（block `lang0.surface`）。它们是 Library「看」的材料，见 docs/Library/Packages.md。
+//!
 //! 调用方要知道的：
 //!
 //! - 草稿的 `body.modules` 要在本次交付的 dependencies 里，否则读不到模块源码，以 use 失败交回。
+//! - 模块目录的 Tree 要在本次交付的 dependencies 里；列出模块时某个模块写错了，它的 description 写诊断的第一行，不拦下整张表。
 //! - Lang0 的诊断（`路径:行:列: 说明`）原样作 use 失败交回；装载与资源故障是宿主故障，停下调用者。
 //! - 通道是 Discardable：没有世界效果，重做得到同样的结果。
 
@@ -24,6 +28,24 @@ impl Infer {
     }
 }
 
+/// 目录里的模块与各自 docstring 的第一行；写错的模块不拦下整张表。
+fn listing(modules: &str, read: &dyn croon_port::Read) -> Result<Vec<Json>, CheckError> {
+    let mut out = vec![];
+    for name in lang0::modules(modules, read)? {
+        let description = match lang0::surface(modules, &name, read) {
+            Ok(surface) => surface["description"]
+                .as_str()
+                .and_then(|d| d.lines().next())
+                .unwrap_or("")
+                .to_owned(),
+            Err(CheckError::Rejected(message)) => message.lines().next().unwrap_or("").to_owned(),
+            Err(error) => return Err(error),
+        };
+        out.push(json!({"module": name, "description": description}));
+    }
+    Ok(out)
+}
+
 fn success(interface: Json) -> Json {
     json!({"ok": true, "value": {"interface": interface}, "dependencies": []})
 }
@@ -40,11 +62,27 @@ impl Port for Infer {
         Channel::Discardable
     }
     fn start(&self, call: &Call) -> Result<Box<dyn Execution>, HostError> {
-        let draft = json!({"language": call.value["language"], "body": call.value["body"]});
-        let outcome = match lang0::interface(&draft, &Code(&*call.content)) {
-            Ok(interface) => success(interface),
-            Err(CheckError::Rejected(message)) => rejected(message),
-            Err(CheckError::Host(error)) => return Err(error),
+        let read = Code(&*call.content);
+        let outcome = if let Some(modules) = call.value["modules"].as_str() {
+            match call.value["module"].as_str() {
+                Some(name) => match lang0::surface(modules, name, &read) {
+                    Ok(surface) => json!({"ok": true, "value": {"surface": surface}, "dependencies": []}),
+                    Err(CheckError::Rejected(message)) => rejected(message),
+                    Err(CheckError::Host(error)) => return Err(error),
+                },
+                None => match listing(modules, &read) {
+                    Ok(list) => json!({"ok": true, "value": {"modules": list}, "dependencies": []}),
+                    Err(CheckError::Rejected(message)) => rejected(message),
+                    Err(CheckError::Host(error)) => return Err(error),
+                },
+            }
+        } else {
+            let draft = json!({"language": call.value["language"], "body": call.value["body"]});
+            match lang0::interface(&draft, &read) {
+                Ok(interface) => success(interface),
+                Err(CheckError::Rejected(message)) => rejected(message),
+                Err(CheckError::Host(error)) => return Err(error),
+            }
         };
         Ok(Box::new(Ready(HostDone { outcome })))
     }

@@ -139,10 +139,7 @@ impl Scripted {
         let w0 = request["system"].as_str().unwrap().contains("W0");
         let mut plan = Vec::new();
         if w0 {
-            plan.push((
-                "delegate",
-                json!({"agent": "s", "input": {"task": "修好 a.py"}}),
-            ));
+            plan.push(("s", json!({"task": "修好 a.py"})));
             if self.three_way {
                 plan.push(("write_file", json!({"path": "o.txt", "content": "ours\n"})));
             }
@@ -194,7 +191,7 @@ impl Execution for Ready {
     }
 }
 
-/// 造出来的主体的剧本：W0 在一次 delegate 里造一个会改文件的 Agent 并交办，再并入；
+/// 造出来的主体的剧本：W0 用 make 造一个会改文件的 Agent 载入，直接调用它，再并入；
 /// 造出来的 Agent 写一个文件，`slow` 时它先跑一条慢命令，exec 在途的时间窗口因此够长。
 /// 它的源码是 W0 自己写的，不在家目录里，所以 infer、pack、construct、instantiate 这条路都从头走。
 pub struct Making {
@@ -235,11 +232,9 @@ impl Making {
         };
         if w0 {
             match turn {
-                0 => call(
-                    "delegate",
-                    json!({"agent": "maker", "source": MAKER, "input": {"task": "修好 a.py"}}),
-                ),
-                1 => call("merge", json!({"name": "maker"})),
+                0 => call("make", json!({"name": "maker", "source": MAKER})),
+                1 => call("maker", json!({"task": "修好 a.py"})),
+                2 => call("merge", json!({"name": "maker"})),
                 _ => llm("已造好并修好 a.py", json!([])),
             }
         } else {

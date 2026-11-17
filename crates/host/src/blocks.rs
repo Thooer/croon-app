@@ -16,7 +16,9 @@ pub static BLOCKS: &[Block] = croon_eval::block_files![
 /// 本 crate 的 block，找不到的沿依赖往下找。
 pub fn block(name: &str) -> Option<&'static Block> {
     chain(find(BLOCKS, name), || {
-        chain(model::block(name), || directory::block(name))
+        chain(model::block(name), || {
+            chain(directory::block(name), || lang0::block(name))
+        })
     })
 }
 

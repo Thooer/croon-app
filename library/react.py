@@ -6,7 +6,7 @@ from croon import Inbox, receive
 
 def react(generate: Callable, tools: list[Callable], messages: list[Any], system: str,
           inbox: Inbox | None = None, max_turns: int = 50) -> str:
-    """循环：生成一次，按顺序执行工具调用，没有调用就以这一轮的文本结束。"""
+    """循环：生成一次，按顺序执行工具调用，没有调用就以这一轮的文本结束。tools 是传进来的同一个列表，工具运行时往里加的，下一轮起可用。"""
     pending = []
     names = {}
 
@@ -16,11 +16,25 @@ def react(generate: Callable, tools: list[Callable], messages: list[Any], system
         pending.clear()
         return out
 
-    fns = tools + ([read_messages] if inbox is not None else [])
-    table = {t.name: t for t in [croon.tool(f) for f in fns]}
-    specs = [t.spec for t in table.values()]
+    if inbox is not None:
+        tools.append(read_messages)
+    table = {}
+    specs = []
+
+    def refresh() -> None:
+        """工具表只增不减：新载入的下一轮就出现在请求里。一项是函数，或 {name, description, input, call}。"""
+        while len(specs) < len(tools):
+            t = tools[len(specs)]
+            if isinstance(t, dict):
+                table[t["name"]] = t["call"]
+                specs.append({"name": t["name"], "description": t["description"], "input": t["input"]})
+            else:
+                tool = croon.tool(t)
+                table[tool.name] = tool
+                specs.append(tool.spec)
 
     for turn in range(max_turns):
+        refresh()
         r = croon.send(generate, {"system": system, "messages": messages, "tools": specs}).value
         if r["finish"] not in ["stop", "tool_calls"]:
             raise RuntimeError(f"生成没有正常结束：{r['finish']}")

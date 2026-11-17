@@ -1,4 +1,4 @@
-//! 造出来能交办的端到端：W0 在一次 delegate 里造一个 Agent，按它的 Interface 实例化、等结束，审过 diff 再并入。
+//! 造出来能交办的端到端：W0 造一个 Agent 载入，直接调用，按它的 Interface 实例化、等结束，审过 diff 再并入。
 //! 参考：docs/Library/Runtime.md「工具」；docs/Plan.md（制造闭环）。
 
 mod support;
@@ -42,12 +42,15 @@ fn w0(step: usize) -> Json {
     match step {
         0 => llm(
             "",
-            json!([{"id": "c1", "name": "delegate",
-                    "input": {"agent": "writer", "source": WRITER, "input": {"task": "修好 a.py"}}}]),
+            json!([{"id": "c1", "name": "make", "input": {"name": "writer", "source": WRITER}}]),
         ),
         1 => llm(
             "",
-            json!([{"id": "c2", "name": "merge", "input": {"name": "writer"}}]),
+            json!([{"id": "c2", "name": "writer", "input": {"task": "修好 a.py"}}]),
+        ),
+        2 => llm(
+            "",
+            json!([{"id": "c3", "name": "merge", "input": {"name": "writer"}}]),
         ),
         _ => llm("已造好 writer 并修好 a.py", json!([])),
     }

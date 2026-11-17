@@ -18,8 +18,9 @@ fn port_name(name: &str) -> String {
 /// Library 的手写模块，编进二进制：宿主交出的 Library 只由这次构建决定。
 pub const SOURCES: &[(&str, &str)] = &[
     ("agents.py", include_str!("../../../library/agents.py")),
-    ("delegation.py", include_str!("../../../library/delegation.py")),
     ("files.py", include_str!("../../../library/files.py")),
+    ("manager.py", include_str!("../../../library/manager.py")),
+    ("README.md", include_str!("../../../library/README.md")),
     ("react.py", include_str!("../../../library/react.py")),
     ("s.py", include_str!("../../../library/s.py")),
     ("w0.py", include_str!("../../../library/w0.py")),

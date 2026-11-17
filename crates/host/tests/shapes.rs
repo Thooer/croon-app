@@ -39,8 +39,8 @@ struct Shapes {
     seen: Rc<RefCell<Vec<Json>>>,
 }
 
-fn call(id: &str, input: Json) -> Json {
-    llm("", json!([{"id": id, "name": "delegate", "input": input}]))
+fn call(id: &str, name: &str, input: Json) -> Json {
+    llm("", json!([{"id": id, "name": name, "input": input}]))
 }
 
 impl Port for Shapes {
@@ -55,11 +55,14 @@ impl Port for Shapes {
         let outcome = if request["system"].as_str().unwrap().contains("W0") {
             self.seen.borrow_mut().push(request.clone());
             match request["messages"].as_array().unwrap().len() / 2 {
-                0 => call("c1", json!({"agent": "double", "source": PURE, "input": {"x": 21}})),
-                1 => call("c2", json!({"agent": "ask", "source": ASKING, "input": {"question": "二加二"}})),
-                2 => call("c3", json!({"agent": "double", "input": {"x": 4}})),
-                3 => call("c4", json!({"agent": "weird", "source": MISMATCH, "input": {}})),
-                4 => call("c5", json!({"agent": "nobody", "input": {}})),
+                0 => call("c1", "make", json!({"name": "double", "source": PURE})),
+                1 => call("c2", "double", json!({"x": 21})),
+                2 => call("c3", "make", json!({"name": "ask", "source": ASKING})),
+                3 => call("c4", "ask", json!({"question": "二加二"})),
+                4 => call("c5", "double", json!({"x": 4})),
+                5 => call("c6", "make", json!({"name": "weird", "source": MISMATCH})),
+                6 => call("c7", "weird", json!({})),
+                7 => call("c8", "nobody", json!({})),
                 _ => llm("都试过了", json!([])),
             }
         } else {
@@ -106,17 +109,14 @@ fn different_shapes_run_and_a_wiring_mistake_comes_back_readable() {
     let seen = seen.borrow();
     let last = seen.last().unwrap()["messages"].as_array().unwrap().clone();
     let result = |n: usize| last[2 * n + 2]["results"][0].clone();
-    assert_eq!(result(0)["output"], json!({"agent": "double", "result": 42}));
-    assert_eq!(result(1)["output"], json!({"agent": "ask", "result": "四"}));
-    assert_eq!(
-        result(2)["output"],
-        json!({"agent": "double", "result": 8}),
-        "按名字再交办，不用再给源码"
-    );
-    let weird = result(3);
+    assert_eq!(result(0)["output"]["tool"], "double");
+    assert_eq!(result(1)["output"], json!(42));
+    assert_eq!(result(3)["output"], json!("四"));
+    assert_eq!(result(4)["output"], json!(8), "再调用不用再给源码");
+    let weird = result(6);
     assert_eq!(weird["is_error"], true, "{weird}");
     assert_eq!(weird["output"]["error"], "type", "{weird}");
-    let nobody = result(4);
+    let nobody = result(7);
     assert_eq!(nobody["is_error"], true);
     assert!(
         nobody["output"]["message"].as_str().unwrap().contains("nobody"),

@@ -31,11 +31,15 @@ struct Constructing {
     seen: Rc<RefCell<Vec<Json>>>,
 }
 
-fn delegate(id: &str, source: &str) -> Json {
+fn make(id: &str, source: &str) -> Json {
     llm(
         "",
-        json!([{"id": id, "name": "delegate", "input": {"agent": "helper", "source": source, "input": {"x": 1}}}]),
+        json!([{"id": id, "name": "make", "input": {"name": "helper", "source": source}}]),
     )
+}
+
+fn invoke(id: &str, name: &str) -> Json {
+    llm("", json!([{"id": id, "name": name, "input": {"x": 1}}]))
 }
 
 impl Port for Constructing {
@@ -49,9 +53,10 @@ impl Port for Constructing {
         self.seen.borrow_mut().push(call.value.clone());
         let turn = call.value["messages"].as_array().unwrap().len() / 2;
         let outcome = match turn {
-            0 => delegate("c1", BAD),
-            1 => delegate("c2", GOOD),
-            2 => delegate("c3", UNSUPPLIED),
+            0 => make("c1", BAD),
+            1 => make("c2", GOOD),
+            2 => invoke("c3", "helper"),
+            3 => make("c4", UNSUPPLIED),
             _ => llm("已造好 helper", json!([])),
         };
         Ok(Box::new(Ready(HostDone { outcome })))
@@ -100,18 +105,26 @@ fn a_wrong_source_comes_back_as_a_diagnostic_and_a_fixed_one_runs() {
     );
 
     let seen = seen.borrow();
-    assert_eq!(seen.len(), 4);
+    assert_eq!(seen.len(), 5);
     let messages = seen[1]["messages"].as_array().unwrap();
     let failed = &messages[2]["results"][0];
     assert_eq!(failed["is_error"], true);
     assert_eq!(failed["output"]["error"], "use");
     let message = failed["output"]["message"].as_str().unwrap();
     assert!(message.contains("main 的参数须标类型"), "{message}");
-    let ran = &seen[2]["messages"].as_array().unwrap()[4]["results"][0];
+    let made = &seen[2]["messages"].as_array().unwrap()[4]["results"][0];
+    assert_eq!(made["is_error"], false);
+    assert_eq!(made["output"]["tool"], "helper");
+    let tools = seen[3]["tools"].as_array().unwrap();
+    assert!(
+        tools.iter().any(|t| t["name"] == "helper"),
+        "造好的主体下一轮就在工具表里"
+    );
+    let ran = &seen[3]["messages"].as_array().unwrap()[6]["results"][0];
     assert_eq!(ran["is_error"], false);
-    assert_eq!(ran["output"], json!({"agent": "helper", "result": 2}));
-    let later = seen[3]["messages"].as_array().unwrap();
-    let hint = &later[6]["results"][0];
+    assert_eq!(ran["output"], json!(2));
+    let later = seen[4]["messages"].as_array().unwrap();
+    let hint = &later[8]["results"][0];
     assert_eq!(hint["is_error"], true);
     let text = hint["output"]["message"].as_str().unwrap();
     assert!(text.contains("pack"), "{text}");

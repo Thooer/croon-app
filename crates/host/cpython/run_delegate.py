@@ -102,11 +102,11 @@ SCRIPTS = {
            "1": done_exec(snapshot="sha256:lrepo2"),
            "2": llm("改好了 a.py", [])},
           S_IN, {"engine": "port", "exec": "port"}, {}),
-    # W0：先读家目录里的清单，交办时按清单第一次构造 s：读源码、infer、pack、construct，再实例化、登记、取、diff、merge。
-    "w0": ({"0": llm("", [{"id": "c1", "name": "delegate", "input": {"agent": "s", "input": {"task": "修好 a.py"}}}]),
-            "1": ok({"interface": S_INTERFACE}),
+    # W0：启动时读清单，把清单里的 s 构造出来载入（读源码、infer、pack、construct），模型直接调用 s：实例化、登记、取、diff，再 merge。
+    "w0": ({"0": ok({"interface": S_INTERFACE}),
+            "1": ok({"id": "sha256:ls"}),
             "2": ok({"id": "sha256:ls"}),
-            "3": ok({"id": "sha256:ls"}),
+            "3": llm("", [{"id": "c1", "name": "s", "input": {"task": "修好 a.py"}}]),
             "4": ok(None, attach={"look": {"handle": "h-slook", "spec": "sha256:pslook"},
                                   "notify": {"handle": "h-snotify", "spec": "sha256:psnotify"},
                                   "correct": {"handle": "h-scorrect", "spec": "sha256:pscorrect"}},

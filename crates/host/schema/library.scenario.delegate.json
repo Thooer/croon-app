@@ -380,7 +380,7 @@
       ]
     },
     "sha256:lw0send0": {
-      "system": "你是 W0。能改仓库里的文件、跑命令，也能把一件事交办给 Agent：现成的见下，也可以自己写 Lang0 源码造新的；交回的先看 diff，满意再并入。\n现成的 Agent：\n- s：在工作区里改代码，交回总结与改过的目录。input 写 {\"task\": 要做的事}。",
+      "system": "你是 W0。能改仓库里的文件、跑命令。Library 里有可复用的模块：用 look 看有什么、怎么用。要造一个新的 Agent，先 look，再用 make 把 Lang0 源码造出来载入，它就成了你的一个工具，直接调用。交回目录的先看 diff，满意再 merge。",
       "messages": [
         {
           "role": "user",
@@ -449,30 +449,61 @@
           }
         },
         {
-          "name": "delegate",
-          "description": "交办一件事给一个 Agent，等它结束，交回它的结束值。\n\nagent 是它的名字：系统提示里列着的是现成的；自己造的，给 source 或 path，造好记在这个名字下，名字重了\n会加序号，用返回的 agent；之后只给名字就行。它要 engine 与 exec 之外的 Port 时，交办的一方给不了。\ninput 里有 snapshot 的，工作区的当前位置由这里填，不用写；结束值带 snapshot 的，一并交回 name 与\ndiff，满意了再用 merge 并入。",
+          "name": "s",
+          "description": "改一处代码，交回总结与改过的 Bundle。 交回改过的目录：结果里的 name 与 diff 给你审，满意后用 merge(name) 并入。",
           "input": {
             "type": "object",
             "properties": {
-              "agent": {
-                "type": "string",
-                "description": "Agent 的名字。"
-              },
-              "input": {
-                "description": "它的输入，按它 main 的参数写，不含 snapshot。"
-              },
-              "source": {
-                "type": "string",
-                "description": "Lang0 源码，须有顶层 def main，参数与返回值都标类型；可以 import library 里的模块。"
-              },
-              "path": {
-                "type": "string",
-                "description": "工作区里的 .py 文件，或含 main.py 的目录，作为它的源码。"
+              "task": {
+                "type": "string"
               }
             },
             "required": [
-              "agent",
-              "input"
+              "task"
+            ],
+            "additionalProperties": false
+          }
+        },
+        {
+          "name": "look",
+          "description": "看 Library 里有什么、怎么用。不给 name：总说明与所有模块各一句话；给模块名（如 library.files）：它的公开面，\n函数的签名与说明、类型与 Port 的形状；再给 source=True 才是源码。写 Agent 之前先看。",
+          "input": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string",
+                "description": "模块名，如 library.workspace。"
+              },
+              "source": {
+                "type": "boolean",
+                "description": "要源码，不要公开面。"
+              }
+            },
+            "required": [],
+            "additionalProperties": false
+          }
+        },
+        {
+          "name": "make",
+          "description": "造一个 Agent 并载入工具表：给 source（Lang0 源码，须有顶层 def main，参数与返回值都标类型，可以\nimport library 里的模块）或 path（工作区里的 .py 文件，或含 main.py 的目录）。造好后它就是一个工具，\n以返回的名字直接调用，输入按它 main 的参数写。名字重了会加序号。它要 engine 与 exec 之外的 Port 时，\n交办的一方给不了。",
+          "input": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string",
+                "description": "工具的名字。"
+              },
+              "source": {
+                "type": "string",
+                "description": "Lang0 源码。"
+              },
+              "path": {
+                "type": "string",
+                "description": "工作区里的源码路径。"
+              }
+            },
+            "required": [
+              "name"
             ],
             "additionalProperties": false
           }
@@ -528,7 +559,7 @@
       "timeout": 60
     },
     "sha256:lw0send5": {
-      "system": "你是 W0。能改仓库里的文件、跑命令，也能把一件事交办给 Agent：现成的见下，也可以自己写 Lang0 源码造新的；交回的先看 diff，满意再并入。\n现成的 Agent：\n- s：在工作区里改代码，交回总结与改过的目录。input 写 {\"task\": 要做的事}。",
+      "system": "你是 W0。能改仓库里的文件、跑命令。Library 里有可复用的模块：用 look 看有什么、怎么用。要造一个新的 Agent，先 look，再用 make 把 Lang0 源码造出来载入，它就成了你的一个工具，直接调用。交回目录的先看 diff，满意再 merge。",
       "messages": [
         {
           "role": "user",
@@ -541,12 +572,9 @@
           "calls": [
             {
               "id": "c1",
-              "name": "delegate",
+              "name": "s",
               "input": {
-                "agent": "s",
-                "input": {
-                  "task": "修好 a.py"
-                }
+                "task": "修好 a.py"
               }
             }
           ]
@@ -556,13 +584,12 @@
           "results": [
             {
               "id": "c1",
-              "name": "delegate",
+              "name": "s",
               "output": {
-                "agent": "s",
-                "name": "s",
                 "result": {
                   "summary": "改好了 a.py"
                 },
+                "name": "s",
                 "diff": " a.py | 2 +-\n 1 file changed, 1 insertion(+), 1 deletion(-)\n"
               },
               "is_error": false
@@ -632,30 +659,61 @@
           }
         },
         {
-          "name": "delegate",
-          "description": "交办一件事给一个 Agent，等它结束，交回它的结束值。\n\nagent 是它的名字：系统提示里列着的是现成的；自己造的，给 source 或 path，造好记在这个名字下，名字重了\n会加序号，用返回的 agent；之后只给名字就行。它要 engine 与 exec 之外的 Port 时，交办的一方给不了。\ninput 里有 snapshot 的，工作区的当前位置由这里填，不用写；结束值带 snapshot 的，一并交回 name 与\ndiff，满意了再用 merge 并入。",
+          "name": "s",
+          "description": "改一处代码，交回总结与改过的 Bundle。 交回改过的目录：结果里的 name 与 diff 给你审，满意后用 merge(name) 并入。",
           "input": {
             "type": "object",
             "properties": {
-              "agent": {
-                "type": "string",
-                "description": "Agent 的名字。"
-              },
-              "input": {
-                "description": "它的输入，按它 main 的参数写，不含 snapshot。"
-              },
-              "source": {
-                "type": "string",
-                "description": "Lang0 源码，须有顶层 def main，参数与返回值都标类型；可以 import library 里的模块。"
-              },
-              "path": {
-                "type": "string",
-                "description": "工作区里的 .py 文件，或含 main.py 的目录，作为它的源码。"
+              "task": {
+                "type": "string"
               }
             },
             "required": [
-              "agent",
-              "input"
+              "task"
+            ],
+            "additionalProperties": false
+          }
+        },
+        {
+          "name": "look",
+          "description": "看 Library 里有什么、怎么用。不给 name：总说明与所有模块各一句话；给模块名（如 library.files）：它的公开面，\n函数的签名与说明、类型与 Port 的形状；再给 source=True 才是源码。写 Agent 之前先看。",
+          "input": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string",
+                "description": "模块名，如 library.workspace。"
+              },
+              "source": {
+                "type": "boolean",
+                "description": "要源码，不要公开面。"
+              }
+            },
+            "required": [],
+            "additionalProperties": false
+          }
+        },
+        {
+          "name": "make",
+          "description": "造一个 Agent 并载入工具表：给 source（Lang0 源码，须有顶层 def main，参数与返回值都标类型，可以\nimport library 里的模块）或 path（工作区里的 .py 文件，或含 main.py 的目录）。造好后它就是一个工具，\n以返回的名字直接调用，输入按它 main 的参数写。名字重了会加序号。它要 engine 与 exec 之外的 Port 时，\n交办的一方给不了。",
+          "input": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string",
+                "description": "工具的名字。"
+              },
+              "source": {
+                "type": "string",
+                "description": "Lang0 源码。"
+              },
+              "path": {
+                "type": "string",
+                "description": "工作区里的源码路径。"
+              }
+            },
+            "required": [
+              "name"
             ],
             "additionalProperties": false
           }
@@ -680,7 +738,7 @@
       ]
     },
     "sha256:lw0send6": {
-      "system": "你是 W0。能改仓库里的文件、跑命令，也能把一件事交办给 Agent：现成的见下，也可以自己写 Lang0 源码造新的；交回的先看 diff，满意再并入。\n现成的 Agent：\n- s：在工作区里改代码，交回总结与改过的目录。input 写 {\"task\": 要做的事}。",
+      "system": "你是 W0。能改仓库里的文件、跑命令。Library 里有可复用的模块：用 look 看有什么、怎么用。要造一个新的 Agent，先 look，再用 make 把 Lang0 源码造出来载入，它就成了你的一个工具，直接调用。交回目录的先看 diff，满意再 merge。",
       "messages": [
         {
           "role": "user",
@@ -693,12 +751,9 @@
           "calls": [
             {
               "id": "c1",
-              "name": "delegate",
+              "name": "s",
               "input": {
-                "agent": "s",
-                "input": {
-                  "task": "修好 a.py"
-                }
+                "task": "修好 a.py"
               }
             }
           ]
@@ -708,13 +763,12 @@
           "results": [
             {
               "id": "c1",
-              "name": "delegate",
+              "name": "s",
               "output": {
-                "agent": "s",
-                "name": "s",
                 "result": {
                   "summary": "改好了 a.py"
                 },
+                "name": "s",
                 "diff": " a.py | 2 +-\n 1 file changed, 1 insertion(+), 1 deletion(-)\n"
               },
               "is_error": false
@@ -809,30 +863,61 @@
           }
         },
         {
-          "name": "delegate",
-          "description": "交办一件事给一个 Agent，等它结束，交回它的结束值。\n\nagent 是它的名字：系统提示里列着的是现成的；自己造的，给 source 或 path，造好记在这个名字下，名字重了\n会加序号，用返回的 agent；之后只给名字就行。它要 engine 与 exec 之外的 Port 时，交办的一方给不了。\ninput 里有 snapshot 的，工作区的当前位置由这里填，不用写；结束值带 snapshot 的，一并交回 name 与\ndiff，满意了再用 merge 并入。",
+          "name": "s",
+          "description": "改一处代码，交回总结与改过的 Bundle。 交回改过的目录：结果里的 name 与 diff 给你审，满意后用 merge(name) 并入。",
           "input": {
             "type": "object",
             "properties": {
-              "agent": {
-                "type": "string",
-                "description": "Agent 的名字。"
-              },
-              "input": {
-                "description": "它的输入，按它 main 的参数写，不含 snapshot。"
-              },
-              "source": {
-                "type": "string",
-                "description": "Lang0 源码，须有顶层 def main，参数与返回值都标类型；可以 import library 里的模块。"
-              },
-              "path": {
-                "type": "string",
-                "description": "工作区里的 .py 文件，或含 main.py 的目录，作为它的源码。"
+              "task": {
+                "type": "string"
               }
             },
             "required": [
-              "agent",
-              "input"
+              "task"
+            ],
+            "additionalProperties": false
+          }
+        },
+        {
+          "name": "look",
+          "description": "看 Library 里有什么、怎么用。不给 name：总说明与所有模块各一句话；给模块名（如 library.files）：它的公开面，\n函数的签名与说明、类型与 Port 的形状；再给 source=True 才是源码。写 Agent 之前先看。",
+          "input": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string",
+                "description": "模块名，如 library.workspace。"
+              },
+              "source": {
+                "type": "boolean",
+                "description": "要源码，不要公开面。"
+              }
+            },
+            "required": [],
+            "additionalProperties": false
+          }
+        },
+        {
+          "name": "make",
+          "description": "造一个 Agent 并载入工具表：给 source（Lang0 源码，须有顶层 def main，参数与返回值都标类型，可以\nimport library 里的模块）或 path（工作区里的 .py 文件，或含 main.py 的目录）。造好后它就是一个工具，\n以返回的名字直接调用，输入按它 main 的参数写。名字重了会加序号。它要 engine 与 exec 之外的 Port 时，\n交办的一方给不了。",
+          "input": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string",
+                "description": "工具的名字。"
+              },
+              "source": {
+                "type": "string",
+                "description": "Lang0 源码。"
+              },
+              "path": {
+                "type": "string",
+                "description": "工作区里的源码路径。"
+              }
+            },
+            "required": [
+              "name"
             ],
             "additionalProperties": false
           }
@@ -871,7 +956,7 @@
     "sha256:lw0infer": {
       "language": "lang0@1",
       "body": {
-        "source": "\"\"\"S：被交办的子 Agent，在显式交付的目录 Bundle 中改代码，交回总结与产物 Bundle。\"\"\"\nfrom typing import TypedDict\nimport croon\nfrom library.model import Generate\nfrom library.directory import Exec\nfrom library.files import file_tools\nfrom library.react import react\nfrom library.workspace import workspace\n\nOut = TypedDict(\"Out\", {\"summary\": str, \"snapshot\": str})\n\nSYSTEM = \"你在 /work 里改代码。改完用一两句话说清改了什么。\"\n\n\ndef main(task: str, snapshot: str, engine: Generate, exec: Exec) -> Out:\n    \"\"\"改一处代码，交回总结与改过的 Bundle。\"\"\"\n    ws = workspace(snapshot)\n    summary = react(engine, file_tools(exec, ws), [{\"role\": \"user\", \"text\": task}], SYSTEM)\n    return croon.deliver({\"summary\": summary, \"snapshot\": ws[\"current\"]}, [ws[\"current\"]])\n",
+        "source": "\"\"\"S：改代码的 Agent，在显式交付的目录里改，交回总结与产物。\"\"\"\nfrom typing import TypedDict\nimport croon\nfrom library.model import Generate\nfrom library.directory import Exec\nfrom library.files import file_tools\nfrom library.react import react\nfrom library.workspace import workspace\n\nOut = TypedDict(\"Out\", {\"summary\": str, \"snapshot\": str})\n\nSYSTEM = \"你在 /work 里改代码。改完用一两句话说清改了什么。\"\n\n\ndef main(task: str, snapshot: str, engine: Generate, exec: Exec) -> Out:\n    \"\"\"改一处代码，交回总结与改过的 Bundle。\"\"\"\n    ws = workspace(snapshot)\n    summary = react(engine, file_tools(exec, ws), [{\"role\": \"user\", \"text\": task}], SYSTEM)\n    return croon.deliver({\"summary\": summary, \"snapshot\": ws[\"current\"]}, [ws[\"current\"]])\n",
         "modules": "sha256:lhome"
       }
     },
@@ -1262,7 +1347,7 @@
             }
           },
           "body": {
-            "source": "\"\"\"S：被交办的子 Agent，在显式交付的目录 Bundle 中改代码，交回总结与产物 Bundle。\"\"\"\nfrom typing import TypedDict\nimport croon\nfrom library.model import Generate\nfrom library.directory import Exec\nfrom library.files import file_tools\nfrom library.react import react\nfrom library.workspace import workspace\n\nOut = TypedDict(\"Out\", {\"summary\": str, \"snapshot\": str})\n\nSYSTEM = \"你在 /work 里改代码。改完用一两句话说清改了什么。\"\n\n\ndef main(task: str, snapshot: str, engine: Generate, exec: Exec) -> Out:\n    \"\"\"改一处代码，交回总结与改过的 Bundle。\"\"\"\n    ws = workspace(snapshot)\n    summary = react(engine, file_tools(exec, ws), [{\"role\": \"user\", \"text\": task}], SYSTEM)\n    return croon.deliver({\"summary\": summary, \"snapshot\": ws[\"current\"]}, [ws[\"current\"]])\n",
+            "source": "\"\"\"S：改代码的 Agent，在显式交付的目录里改，交回总结与产物。\"\"\"\nfrom typing import TypedDict\nimport croon\nfrom library.model import Generate\nfrom library.directory import Exec\nfrom library.files import file_tools\nfrom library.react import react\nfrom library.workspace import workspace\n\nOut = TypedDict(\"Out\", {\"summary\": str, \"snapshot\": str})\n\nSYSTEM = \"你在 /work 里改代码。改完用一两句话说清改了什么。\"\n\n\ndef main(task: str, snapshot: str, engine: Generate, exec: Exec) -> Out:\n    \"\"\"改一处代码，交回总结与改过的 Bundle。\"\"\"\n    ws = workspace(snapshot)\n    summary = react(engine, file_tools(exec, ws), [{\"role\": \"user\", \"text\": task}], SYSTEM)\n    return croon.deliver({\"summary\": summary, \"snapshot\": ws[\"current\"]}, [ws[\"current\"]])\n",
             "modules": "sha256:lhome"
           }
         }
@@ -1646,53 +1731,6 @@
           "send": {
             "key": "0",
             "to": {
-              "port": "engine"
-            },
-            "ref": "h-w0engine",
-            "delivery": {
-              "value": "sha256:lw0send0",
-              "dependencies": []
-            },
-            "attach": {},
-            "result": {
-              "outcome": {
-                "ok": true,
-                "value": {
-                  "text": "",
-                  "reasoning": null,
-                  "calls": [
-                    {
-                      "id": "c1",
-                      "name": "delegate",
-                      "input": {
-                        "agent": "s",
-                        "input": {
-                          "task": "修好 a.py"
-                        }
-                      }
-                    }
-                  ],
-                  "finish": "tool_calls",
-                  "usage": {
-                    "input": 1,
-                    "output": 1
-                  }
-                },
-                "dependencies": []
-              },
-              "attach": {},
-              "derived": {},
-              "accepted": true
-            }
-          }
-        }
-      },
-      {
-        "by": "self",
-        "what": {
-          "send": {
-            "key": "1",
-            "to": {
               "port": "infer"
             },
             "ref": "h-w0infer",
@@ -1767,7 +1805,7 @@
         "by": "self",
         "what": {
           "send": {
-            "key": "2",
+            "key": "1",
             "to": {
               "port": "pack"
             },
@@ -1800,7 +1838,7 @@
         "by": "self",
         "what": {
           "send": {
-            "key": "3",
+            "key": "2",
             "to": {
               "port": "construct"
             },
@@ -1817,6 +1855,50 @@
                 "ok": true,
                 "value": {
                   "id": "sha256:ls"
+                },
+                "dependencies": []
+              },
+              "attach": {},
+              "derived": {},
+              "accepted": true
+            }
+          }
+        }
+      },
+      {
+        "by": "self",
+        "what": {
+          "send": {
+            "key": "3",
+            "to": {
+              "port": "engine"
+            },
+            "ref": "h-w0engine",
+            "delivery": {
+              "value": "sha256:lw0send0",
+              "dependencies": []
+            },
+            "attach": {},
+            "result": {
+              "outcome": {
+                "ok": true,
+                "value": {
+                  "text": "",
+                  "reasoning": null,
+                  "calls": [
+                    {
+                      "id": "c1",
+                      "name": "s",
+                      "input": {
+                        "task": "修好 a.py"
+                      }
+                    }
+                  ],
+                  "finish": "tool_calls",
+                  "usage": {
+                    "input": 1,
+                    "output": 1
+                  }
                 },
                 "dependencies": []
               },

@@ -119,3 +119,83 @@ fn modules_in_the_delivery_are_readable_and_the_w0_source_infers() {
         );
     }
 }
+
+/// 装好一个模块目录，用 `definition.infer` 问它：列出模块，或推一个模块的公开面。
+fn ask(files: &[(&str, &str)], value: Json) -> Json {
+    let root = std::env::temp_dir().join(format!(
+        "croon-infer-surface-{}-{}",
+        std::process::id(),
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos()
+    ));
+    let src = root.join("src");
+    for (name, text) in files {
+        let path = src.join(name);
+        std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+        std::fs::write(path, text).unwrap();
+    }
+    let store = Rc::new(ContentStore::open(root.join("content")).unwrap());
+    let importer = Content::from_inputs(store.clone(), &[], BUDGETS).unwrap();
+    let limits = directory::Limits {
+        nodes: 100_000,
+        bytes: 1 << 26,
+    };
+    let modules = directory::import(&importer, &src, limits).unwrap();
+    let content = Rc::new(Content::from_inputs(store, &[modules.clone()], BUDGETS).unwrap());
+    let mut value = value;
+    value["modules"] = json!(modules);
+    let dependencies = [modules];
+    let call = Call {
+        instance: "i",
+        generation: 0,
+        key: "k",
+        source: "s",
+        attempt: "a",
+        value: &value,
+        dependencies: &dependencies,
+        content,
+    };
+    let mut run = Infer::new("t/infer").start(&call).unwrap();
+    let out = run.collect().unwrap().unwrap().outcome;
+    let _ = std::fs::remove_dir_all(&root);
+    out
+}
+
+const TOOLS: &str = "\"\"\"几个小工具。\n\n更多。\"\"\"\n\n\ndef add(x: int, y: int = 1) -> int:\n    \"\"\"加起来。\n\n    Args:\n        x: 第一个数。\n    \"\"\"\n    return x + y\n";
+
+#[test]
+fn the_modules_of_a_directory_are_listed_with_their_first_line() {
+    let out = ask(
+        &[("pkg/tools.py", TOOLS), ("pkg/bad.py", "def f(:\n"), ("top.py", "x = 1\n")],
+        json!({}),
+    );
+    assert_eq!(out["ok"], true, "{out}");
+    let list = out["value"]["modules"].as_array().unwrap();
+    let names: Vec<_> = list.iter().map(|m| m["module"].as_str().unwrap()).collect();
+    assert_eq!(names, ["pkg.bad", "pkg.tools", "top"]);
+    assert_eq!(list[1]["description"], "几个小工具。");
+    assert!(
+        list[0]["description"].as_str().unwrap().contains("bad.py"),
+        "写错的模块写诊断，不拦下整张表：{list:?}"
+    );
+}
+
+#[test]
+fn a_module_surface_gives_signatures_and_descriptions() {
+    let out = ask(&[("pkg/tools.py", TOOLS)], json!({"module": "pkg.tools"}));
+    assert_eq!(out["ok"], true, "{out}");
+    let surface = &out["value"]["surface"];
+    assert_eq!(surface["items"][0]["name"], "add");
+    assert_eq!(surface["items"][0]["params"][0]["description"], "第一个数。");
+    let schema = host::schema("definition.infer");
+    croon_eval::schema::validate(&schema["out"]["value"], &out["value"]).unwrap();
+}
+
+#[test]
+fn asking_for_a_broken_module_surface_is_a_use_failure() {
+    let out = ask(&[("bad.py", "def f(:\n")], json!({"module": "bad"}));
+    assert_eq!(out["ok"], false, "{out}");
+    assert_eq!(out["error"]["kind"], "use");
+}

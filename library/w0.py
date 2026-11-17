@@ -1,10 +1,10 @@
-"""W0：用户伸向 App 的手。自带的只有管理器：载入家目录清单里的工具，造 Agent 并交办，审过交回的再并入。"""
+"""W0：用户伸向 App 的手。自带的只有管理器：看 Library，载入清单里的工具，造 Agent 载入，审过交回的再并入。"""
 from typing import TypedDict
 from croon import Inbox
 from library.kernel import Construct, Instantiate, Pack
 from library.infer import Infer
 from library.agents import Done
-from library.delegation import delegation_tools
+from library.manager import manager_tools
 from library.model import Generate
 from library.directory import Exec
 from library.react import react
@@ -14,7 +14,7 @@ import croon
 
 Out = TypedDict("Out", {"summary": str, "snapshot": str})
 
-SYSTEM = "你是 W0。能改仓库里的文件、跑命令，也能把一件事交办给 Agent：现成的见下，也可以自己写 Lang0 源码造新的；交回的先看 diff，满意再并入。"
+SYSTEM = "你是 W0。能改仓库里的文件、跑命令。Library 里有可复用的模块：用 look 看有什么、怎么用。要造一个新的 Agent，先 look，再用 make 把 Lang0 源码造出来载入，它就成了你的一个工具，直接调用。交回目录的先看 diff，满意再 merge。"
 
 
 def main(task: str, home: str, snapshot: str, engine: Generate, exec: Exec, instantiate: Instantiate,
@@ -31,16 +31,12 @@ def main(task: str, home: str, snapshot: str, engine: Generate, exec: Exec, inst
     supply = {"engine": engine, "exec": exec}
     tools = []
     listed = {}
-    lines = []
     for item in read_json_at(mine, "tools.json")["tools"]:
         if item["kind"] == "functions":
-            tools = tools + load(item["package"], supply, ws)
+            tools.extend(load(item["package"], supply, ws))
         else:
-            name = item["name"]
-            listed[name] = item["path"]
-            lines.append(f"- {name}：{item['description']}")
+            listed[item["name"]] = item["path"]
     ports = {"instantiate": instantiate, "pack": pack, "construct": construct, "infer": infer}
-    tools = tools + delegation_tools(ws, mine, exec, ports, back, done, supply, listed)
-    system = SYSTEM + "\n现成的 Agent：\n" + "\n".join(lines)
-    summary = react(engine, tools, [{"role": "user", "text": task}], system)
+    tools.extend(manager_tools(ws, mine, exec, ports, back, done, supply, listed, tools))
+    summary = react(engine, tools, [{"role": "user", "text": task}], SYSTEM)
     return croon.deliver({"summary": summary, "snapshot": ws["current"]}, [ws["current"]])

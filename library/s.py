@@ -1,4 +1,4 @@
-"""S：被交办的子 Agent，在显式交付的目录 Bundle 中改代码，交回总结与产物 Bundle。"""
+"""S：改代码的 Agent，在显式交付的目录里改，交回总结与产物。"""
 from typing import TypedDict
 import croon
 from library.model import Generate

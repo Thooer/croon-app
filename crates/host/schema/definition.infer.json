@@ -1,30 +1,120 @@
 {
-  "description": "从 Definition 草稿的 body 推出 Interface；纯计算，不建立构造事实",
+  "description": "从 Definition 草稿的 body 推出 Interface，或列出一个模块目录里的模块、推一个模块的公开面；纯计算，不建立构造事实",
   "in": {
-    "type": "object",
-    "properties": {
-      "language": {"enum": ["lang0@1"]},
-      "body": {
+    "anyOf": [
+      {
         "type": "object",
         "properties": {
-          "source": {"type": "string"},
-          "modules": {"type": "string", "description": "模块目录的 Tree ID，要在本次交付的依赖里"}
+          "language": {
+            "enum": [
+              "lang0@1"
+            ]
+          },
+          "body": {
+            "type": "object",
+            "properties": {
+              "source": {
+                "type": "string"
+              },
+              "modules": {
+                "type": "string",
+                "description": "模块目录的 Tree ID，要在本次交付的依赖里"
+              }
+            },
+            "required": [
+              "source"
+            ],
+            "additionalProperties": false
+          }
         },
-        "required": ["source"],
+        "required": [
+          "language",
+          "body"
+        ],
+        "additionalProperties": false
+      },
+      {
+        "type": "object",
+        "properties": {
+          "modules": {
+            "type": "string",
+            "description": "模块目录的 Tree ID，要在本次交付的依赖里"
+          },
+          "module": {
+            "type": "string",
+            "description": "点分的模块名；不给就列出目录里所有模块"
+          }
+        },
+        "required": [
+          "modules"
+        ],
         "additionalProperties": false
       }
-    },
-    "required": ["language", "body"],
+    ]
+  },
+  "attach": {
     "additionalProperties": false
   },
-  "attach": {"additionalProperties": false},
   "out": {
     "value": {
-      "type": "object",
-      "properties": {"interface": {"type": "object"}},
-      "required": ["interface"],
-      "additionalProperties": false
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "interface": {
+              "type": "object"
+            }
+          },
+          "required": [
+            "interface"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "modules": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "module": {
+                    "type": "string"
+                  },
+                  "description": {
+                    "type": "string",
+                    "description": "模块 docstring 的第一行"
+                  }
+                },
+                "required": [
+                  "module",
+                  "description"
+                ],
+                "additionalProperties": false
+              }
+            }
+          },
+          "required": [
+            "modules"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "surface": {
+              "$block": "lang0.surface"
+            }
+          },
+          "required": [
+            "surface"
+          ],
+          "additionalProperties": false
+        }
+      ]
     },
-    "attach": {"additionalProperties": false}
+    "attach": {
+      "additionalProperties": false
+    }
   }
 }

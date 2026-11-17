@@ -47,7 +47,8 @@ def signature(source):
 
 
 def uses_model(source):
-    return "library.model" in source and "croon.send" in source
+    """源码里问了模型：引入了 Generate，并经 library.model_call.generate 或直接 croon.send 调用。"""
+    return "library.model" in source and ("generate(" in source or "croon.send" in source)
 
 
 def rerun(attempt, source, inputs, snapshot=None, timeout=300):

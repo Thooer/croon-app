@@ -2,7 +2,7 @@
 
 W0 与 S 都用私有工作区持有显式快照，见 ../Runtime.md 的「工作区」。S 产生候选，W0 先比较；基准未变时采用同一个 Bundle，不产生一项复制工作区的执行。
 
-预期的请求与结束值由 `crates/host/cpython/run_delegate.py` 在 CPython 3.12 上独立求出并逐条核对；它借用 croon-lang0 的 CPython 参考实现，见 croon-lang0:docs/README.md「Interface」。Kernel 与 Lang0 是被测实现，模型与文件执行按规格给结果。`$tree: "library"` 指本仓库的 library/ 加上生成模块，由测试装进临时目录。
+预期的请求与结束值由 `crates/host/cpython/run_delegate.py` 在 CPython 3.12 上独立求出并逐条核对；它借用 croon-lang0 的 CPython 参考实现，见 croon-lang0:docs/README.md「Interface」。Kernel 与 Lang0 是被测实现，模型与文件执行按规格给结果。`$tree: "."` 指家目录：本仓库的 library/ 加上生成模块，与默认的 tools.json，由测试装进临时目录。
 
 ## 场景
 

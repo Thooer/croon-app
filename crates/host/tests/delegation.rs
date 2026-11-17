@@ -31,6 +31,7 @@ fn delegation(three_way: bool) {
     let assembly = host::Assembly {
         model: Some(recorder),
         fault: None,
+        tools: None,
     };
     let out1 = temp.root.join("out1");
     let recorded = host::run(&settings, assembly, &repo, task, &out1).unwrap();

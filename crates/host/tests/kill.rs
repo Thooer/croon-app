@@ -100,6 +100,7 @@ fn kills_during_an_exec(make: impl Fn(String) -> Rc<dyn Port>, task: &str, expec
     let assembly = host::Assembly {
         model: Some(recorder),
         fault: None,
+        tools: None,
     };
     let baseline = host::run(
         &settings,

@@ -184,6 +184,8 @@ pub struct Assembly {
     pub model: Option<Rc<dyn Port>>,
     /// 原样交给 Kernel 的故障点，只用于测试。
     pub fault: Option<FaultHook>,
+    /// 代替默认的工具清单：实验要测制造时不载入预置的子代理。要过 [`library::check_tools`]。
+    pub tools: Option<Json>,
 }
 
 /// 一次运行的结果：W0 的总结与它最终采用的目录 Bundle。
@@ -216,7 +218,7 @@ impl Read for Code<'_> {
 }
 
 /// 把家目录装进临时目录，再导入成目录 Bundle：顶层是 library/ 与 tools.json，见 docs/Library/Packages.md。
-fn home_bundle(content: &Content, limits: directory::Limits) -> Result<String> {
+fn home_bundle(content: &Content, limits: directory::Limits, tools: Option<&Json>) -> Result<String> {
     let root = std::env::temp_dir().join(format!(
         "croon-host-library-{}-{}",
         std::process::id(),
@@ -226,7 +228,10 @@ fn home_bundle(content: &Content, limits: directory::Limits) -> Result<String> {
             .unwrap_or(0)
     ));
     library::install(root.join("library"));
-    library::install_home_tools(&root);
+    match tools {
+        Some(tools) => library::write_home_tools(&root, tools).map_err(Error)?,
+        None => library::install_home_tools(&root),
+    }
     let imported = directory::import(content, &root, limits);
     let _ = std::fs::remove_dir_all(&root);
     Ok(imported?)
@@ -333,7 +338,7 @@ pub fn run(
     )?;
 
     let content = Content::from_inputs(kernel.store().clone(), &[], BUDGETS)?;
-    let home = home_bundle(&content, settings.limits())?;
+    let home = home_bundle(&content, settings.limits(), assembly.tools.as_ref())?;
     let w0 = definition(&content, library::source("w0.py"), &home)?;
     let snapshot = directory::import(&content, repo, settings.limits())?;
 

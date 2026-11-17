@@ -100,6 +100,7 @@ fn different_shapes_run_and_a_wiring_mistake_comes_back_readable() {
             seen: seen.clone(),
         })),
         fault: None,
+        tools: None,
     };
     let out = temp.root.join("out");
     let done = host::run(&settings, assembly, &repo, "试几种主体", &out).unwrap();

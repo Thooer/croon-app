@@ -108,6 +108,7 @@ fn recovers_at_every_commit(make: impl Fn(String) -> Rc<dyn Port>, task: &str) {
     let assembly = Assembly {
         model: Some(recorder),
         fault: Some(counter(commits.clone())),
+        tools: None,
     };
     let baseline = host::run(
         &settings,
@@ -128,6 +129,7 @@ fn recovers_at_every_commit(make: impl Fn(String) -> Rc<dyn Port>, task: &str) {
             let assembly = Assembly {
                 model: None,
                 fault: Some(crash_at(n, after)),
+                tools: None,
             };
             let crashed = host::run(
                 &settings,

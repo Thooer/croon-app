@@ -117,6 +117,7 @@ fn w0_constructs_an_agent_delegates_to_it_and_merges_the_result() {
     let assembly = host::Assembly {
         model: Some(recorder),
         fault: None,
+        tools: None,
     };
     let out1 = temp.root.join("out1");
     let recorded = host::run(&settings, assembly, &repo, task, &out1).unwrap_or_else(|e| {

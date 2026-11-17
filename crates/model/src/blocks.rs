@@ -2,7 +2,7 @@
 //! 只有几行的直接写在这里；名字就是形状的出处，`$block` 在取用时展开。
 //! 参考：docs/Model/README.md（模型服务、宿主适配、录制与回放）。
 
-use croon_eval::blocks::{Block, expanded};
+use croon_eval::blocks::{Block, expanded, find};
 
 pub static BLOCKS: &[Block] = &[
     Block {
@@ -40,6 +40,12 @@ pub static BLOCKS: &[Block] = &[
     },
 ];
 
+/// 本 crate 的 block，找不到的沿依赖往下找。
+pub fn block(name: &str) -> Option<&'static Block> {
+    find(BLOCKS, name).or_else(|| croon_port::blocks::block(name))
+}
+
+/// 一份 block，`$block` 已展开。
 pub fn json(name: &str) -> serde_json::Value {
-    expanded(&[BLOCKS, croon_port::blocks::BLOCKS], name)
+    expanded(name, &block)
 }

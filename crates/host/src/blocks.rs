@@ -3,7 +3,7 @@
 //! Directory 与 Kernel 的 block。
 //! 参考：docs/Host/README.md（配置、root entry、构造的推导）。
 
-use croon_eval::blocks::{Block, expanded};
+use croon_eval::blocks::{Block, expanded, find};
 
 pub static BLOCKS: &[Block] = &[
     Block {
@@ -58,14 +58,14 @@ pub static BLOCKS: &[Block] = &[
     },
 ];
 
+/// 本 crate 的 block，找不到的沿依赖往下找。
+pub fn block(name: &str) -> Option<&'static Block> {
+    find(BLOCKS, name)
+        .or_else(|| model::block(name))
+        .or_else(|| directory::block(name))
+}
+
+/// 一份 block，`$block` 已展开。
 pub fn json(name: &str) -> serde_json::Value {
-    expanded(
-        &[
-            BLOCKS,
-            model::BLOCKS,
-            directory::BLOCKS,
-            croon_port::blocks::BLOCKS,
-        ],
-        name,
-    )
+    expanded(name, &block)
 }

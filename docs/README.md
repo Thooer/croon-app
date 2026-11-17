@@ -31,8 +31,8 @@
 | Library 怎样运行 ReAct、工具与交办 | Library/Runtime.md |
 | 怎样组织多个主体、交接与历史；做法什么时候走动态、什么时候走 Handoff | Library/Organization.md |
 | 预置 Charter 与 Application 收什么 | Library/Presets.md |
-| 根怎样装起一个系统、交任务、取回结果 | Host/README.md |
-| 运行中怎样把源码变成一份构造得了的 Definition | Host/README.md 的「构造的推导」；Library/Runtime.md 的「工具」里的「构造并入实例化」 |
+| 根怎样装起一个系统、运行一个 Definition、取回与采用结果 | Host/README.md |
+| 运行中怎样把源码变成一份构造得了的 Definition | Host/README.md 的「构造的推导」；Library/Runtime.md 的「工具」里的「构造并入载入」 |
 | 工作区是什么、谁是它的主人、怎样并入 | Library/Runtime.md 的「工作区」 |
 | Library 的某个场景应当跑出什么 Journal | Library/Scenarios/ |
 | 应用侧的证据、先例与研究线索 | Research/；内容按待核验读 |
@@ -49,7 +49,7 @@
 | Petname | 本地名字 | 英 | 只对自己有意义的短名字；名字空间里的名字，见 Library/Runtime.md |
 | Namespace | 名字空间 | 中 | 主体持有的 Reference 的本地名字表，见 Library/Runtime.md |
 | Package | 包 | 中 | 一份带 README 与索引的目录 Bundle，见 Library/Packages.md |
-| Home | 家目录 | 中 | 用户的包、工具清单与技能所在的工作区，见 Library/Packages.md |
+| Home | 家目录 | 中 | 磁盘上装着用户的包、工具清单与技能的目录，在系统里是一个工作区，见 Library/Packages.md |
 | Skill | 技能 | 中 | 一段教模型怎样组合已有工具的说明，是工具表里的一种 |
 | Custodian | 保管者 | 中 | 见 croon:docs/Kernel/Reference.md「持有意味着什么」 |
 | Registrar | 登记者 | 中 | |

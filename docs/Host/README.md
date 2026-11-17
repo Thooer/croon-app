@@ -12,15 +12,39 @@
 
 一次运行按顺序做五件事：
 
-1. 打开 Kernel：Language 只装 `lang0@1`；宿主 Port 按恢复身份装上模型（`model.generate`）与文件执行（`directory.exec`）。凭据只在宿主配置与提供者里，不进 Definition、输入或 Journal。
-2. 导入：家目录（Library 的包、生成模块与索引、默认工具清单，见 ../Library/Packages.md）、W0 的 Definition 与用户仓库。用户仓库经 Directory 的导入整份成为目录 Bundle，.git 与被忽略的文件都在内：W0 的合并要从候选里的仓库取提交。只想交出一部分的，先准备好那个目录。
+1. 打开 Kernel：Language 只装 `lang0@1`；宿主 Port 按恢复身份装上模型（`model.generate`）、文件执行（`directory.exec`）与推导（`definition.infer`）。凭据只在宿主配置与提供者里，不进 Definition、输入或 Journal。
+2. 导入：家目录，即 App 的包与磁盘上用户的包按包名合成一份目录 Bundle，见 ../Library/Packages.md「两层」；以及调用方交来的目录，经 Directory 的导入整份成为目录 Bundle，.git 与被忽略的文件都在内：并入要从候选里的仓库取提交。只想交出一部分的，先准备好那个目录。
 3. 创建 root entry，按「root entry」的 Interface 与 binding 接线。
-4. 作为客户端驱动 root entry：构造 W0，实例化它，输入是任务、仓库与家目录；按它的 Required port 附带 root entry 手里的同名 Port（W0 要 engine、exec、infer 与 Kernel 的 pack、construct、instantiate），向它的 Notify 登记并附带接到 done 的 back，按 via 取结束结果。别的 Definition 都是 W0 在运行中从家目录载入的，宿主不预先构造。家目录是一份目录 Bundle，顶层是 `library/`（手写的包与生成模块）与 `tools.json`（默认清单，源码在仓库根的 home/），在导入时建成。
-5. 仓库的结果快照由根物化到一个新的空目录，不带家目录，不覆盖用户的仓库，写回见「待定」。家目录第一版不留存。
+4. 作为客户端驱动 root entry：构造要运行的 Definition，实例化它，输入照它的 Signature，见「运行哪一个 Definition」；按它的 Required port 附带 root entry 手里的同名 Port，向它的 Notify 登记并附带接到 done 的 back，按 via 取结束结果。它运行中要用的别的 Definition 都从家目录载入，宿主不预先构造。
+5. 交回结果，见「结果与采用」。
+
+**恢复时输入取自 Journal。** 同一个 Kernel 目录再跑一次是恢复：root entry 已经存在时，宿主不重新导入家目录与调用方的目录，而用 Journal 里这次运行记下的那几份 Bundle。磁盘在两次运行之间会变，被写回过，或被用户改过，重新导入就会报出不同的 Atom，成了重放分歧。
+
+## 运行哪一个 Definition
+
+宿主运行的是一个 Definition，不限于 W0。它按包名从家目录找，或按路径读源码；不指定时运行 W0，它是用户的手，见 ../Library/Presets.md「预置给谁」。
+
+调用方怎样与它沟通，由它的 Interface 决定，见 croon:docs/Kernel/Definition/README.md 的 Interface：
+
+- **输入**照 Signature 的 in：值从调用方给的 JSON 来；目录字段由调用方指定磁盘上的目录，宿主导入后把 Bundle ID 填进去，见 ../Library/Runtime.md 待定「目录字段的声明」；家目录由宿主填。
+- **结果**照 Signature 的 out：结束值交回调用方，其中的目录字段是候选，见「结果与采用」。
+- **接线**：它的 Required port 按名字从 root entry 手里取；root entry 没有的，宿主在实例化之前就拒绝。
+
+所以一个 Definition 的 Interface 就是它作为工具的说明：命令行、别的 Agent 框架把 App 当工具调用时看到的，与手的工具表里看到的，按同一条推出，见 ../Library/Runtime.md「工具」。在本机由一个调用方驱动时，那个调用方就是这次运行的根；经 MCP 一类协议接入的绑定见 Plan.md「以后的方向」的「生态入口」。
+
+## 结果与采用
+
+交回的目录是候选，采用由接收方决定，见 croon:docs/Kernel/Instance.md「委托」。调用 App 的一方是这次运行的根，交来的目录是它的工作状态，所以 App 不改它：
+
+- **任务目录默认只交回**：结束值、相对导入时的 diff，以及结果目录。
+- **采用是调用方的另一步**：以导入时的 Bundle 为基准，与磁盘上的当前内容、交回的候选三方合并，写回那个目录。调用方在运行期间的改动与交回的改动都保留；有冲突时列出路径，目录不动，候选另存。`.git` 不写回：在 /work 里做的提交不并进调用方的仓库，改动以未提交的形式出现在工作树里，由调用方审阅再提交；三方合并 .git 的内部文件没有意义。人在命令行上可以一步做完运行与采用。
+- **家目录默认采用**：机制相同，只写回用户那一层。家目录是根自己的东西，在配置里给一次、每次运行都带上，采用它是根预先定好的策略；任务目录是调用方这一次借给 App 的，两者归属不同，默认就不同。
+
+几次运行同时结束时，各自按自己的导入基准三方合并写回，冲突照常报出。
 
 ## 配置
 
-一次运行装配的全部东西写在一份配置文件里，由启动入口显式指定；宿主不从环境变量或当前目录找配置。路径都是绝对路径。
+一次运行装配的全部东西写在一份配置文件里，由启动入口显式指定；宿主不从环境变量或当前目录找配置。路径都是绝对路径。家目录的路径也在配置里。
 
 形状是 `host.config`。
 
@@ -64,7 +88,7 @@ Required port 在诞生时写定，运行中再接新东西是 Kernel 的待定�
 
 ## 客户端
 
-第一版的客户端是宿主进程里的一次性命令：交一个任务，等结束，写出结果，退出。同一个 Kernel 目录里已经有 root entry 时，宿主不再创建，按原键重报同样的几步，这就是恢复；任务或仓库变了，报出的就不是原来的 Atom，是重放分歧。
+客户端是宿主进程里的命令：运行一个 Definition，等结束，交回结果；或把交回的结果采用进一个目录。同一个 Kernel 目录里已经有 root entry 时，宿主不再创建，按原键重报同样的几步，这就是恢复，输入取自 Journal，见「装配」。
 
 宿主故障由宿主处置，见 croon:docs/Kernel/Instance.md「执行」：
 
@@ -75,20 +99,19 @@ Required port 在诞生时写定，运行中再接新东西是 Kernel 的待定�
 
 ## 三档用法
 
-装配路径只有一条，区别在用户提供到哪一层：
+装配路径只有一条，区别在运行的 Definition 是谁写的：
 
-| 档 | 用户提供 | 宿主补齐 |
+| 档 | 运行的 Definition | 宿主补齐 |
 |---|---|---|
-| Application | 任务、仓库、模型配置 | 预置的 W0 与家目录 |
-| Library | 自己用 Lang0 写、import Library 模块的 Definition | Library 的目录 Bundle |
+| Application | 不指定，即 W0 | App 的包与家目录 |
+| Library | 用户自己用 Lang0 写、import Library 的包 | App 的包与家目录 |
 | Kernel | 自己的 Definition 或 Charter | 只有 Language 与宿主 Port |
 
-三档用同一份 root entry 与同一套宿主 Port，不同的只是第 2、4 步交给 construct 与 instantiate 的东西。
+三档用同一份 root entry 与同一套宿主 Port，不同的只是第 4 步交给 construct 与 instantiate 的东西。
 
 ## 待定
 
-- 写回用户已有的仓库：以导入时的目录 Bundle 为基准三方合并，还是拒绝并报告；见 Library/Organization.md 的待定「root entry 与磁盘上的仓库」。没有场景。
 - 经 socket 连上的 root entry 与持续对话，见 Plan.md「以后的方向」的「持续对话」。场景：W0 持续对话。
 - 多个模型槽位。场景：异质检验。
 
-参考：../Model/README.md（宿主适配、录制与回放）；../Directory/README.md（导入、物化）；../Library/Presets.md（W0）；../Library/Packages.md（家目录）。
+参考：../Model/README.md（宿主适配、录制与回放）；../Directory/README.md（导入、物化）；../Library/Presets.md（W0）；../Library/Packages.md（两层、家目录）；../Library/Runtime.md（工具、交办）。

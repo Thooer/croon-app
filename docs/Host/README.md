@@ -15,7 +15,7 @@
 1. 打开 Kernel：Language 只装 `lang0@1`；宿主 Port 按恢复身份装上模型（`model.generate`）与文件执行（`directory.exec`）。凭据只在宿主配置与提供者里，不进 Definition、输入或 Journal。
 2. 导入：Library 的目录 Bundle、预置 Definition 与用户仓库。用户仓库经 Directory 的导入整份成为目录 Bundle，.git 与被忽略的文件都在内：W0 的合并要从候选里的仓库取提交。只想交出一部分的，先准备好那个目录。
 3. 创建 root entry，按「root entry」的 Interface 与 binding 接线。
-4. 作为客户端驱动 root entry：构造要运行的 Definition，实例化它并附带 engine 与 exec，向它的 Notify 登记并附带接到 done 的 back，按 via 取结束结果。
+4. 作为客户端驱动 root entry：构造要运行的 Definition，实例化它，按它的 Required port 附带 root entry 手里的同名 Port（W0 要 engine、exec、infer 与 Kernel 的 pack、construct、instantiate），向它的 Notify 登记并附带接到 done 的 back，按 via 取结束结果。
 5. 结果快照由根物化到一个新的空目录。不覆盖用户的仓库，写回见「待定」。
 
 ## 配置
@@ -181,7 +181,7 @@ Required port 在诞生时写定，运行中再接新东西是 Kernel 的待定�
 ## 待定
 
 - 写回用户已有的仓库：以导入时的目录 Bundle 为基准三方合并，还是拒绝并报告；见 Library/Organization.md 的待定「root entry 与磁盘上的仓库」。没有场景。
-- 经 socket 连上的 root entry 与持续对话，见 Plan.md 的「下一步」。场景：W0 持续对话。
+- 经 socket 连上的 root entry 与持续对话，见 Plan.md「以后的方向」的「持续对话」。场景：W0 持续对话。
 - 多个模型槽位。场景：异质检验。
 
 参考：../Model/README.md（宿主适配、录制与回放）；../Directory/README.md（导入、物化）；../Library/Presets.md（W0）。

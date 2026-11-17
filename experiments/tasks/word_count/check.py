@@ -20,5 +20,5 @@ for given, want in cases:
 if bad:
     verdict(False, f"{len(bad)}/{len(cases)} 个输入不对", stage="wrong", name=name, bad=bad)
     raise SystemExit
-missing = reported(attempt, ['4'])
+missing = reported(attempt, ['5'])
 verdict(not missing, "全部对，W0 转述对" if not missing else f"主体对，W0 的转述里没有 {missing}", stage="report", name=name)

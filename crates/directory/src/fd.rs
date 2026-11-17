@@ -6,6 +6,12 @@ use std::os::fd::{AsRawFd, FromRawFd};
 use std::os::unix::ffi::OsStrExt;
 use std::path::Path;
 
+/// 物化出来的权限，见 docs/Directory/README.md「Tree」：由 Directory 规定，不随 umask 变。
+/// 这些目录是只读挂载进容器的输入；容器里的 root 没有越权读的 capability，所以目录不能收得比这更紧。
+pub(crate) const DIRECTORY_MODE: libc::mode_t = 0o755;
+pub(crate) const FILE_MODE: libc::mode_t = 0o644;
+pub(crate) const EXECUTABLE_MODE: libc::mode_t = 0o755;
+
 fn c(bytes: &[u8]) -> io::Result<CString> {
     CString::new(bytes).map_err(|_| io::Error::other("NUL in path"))
 }
@@ -56,10 +62,15 @@ pub(crate) fn link(dir: &File, name: &str) -> io::Result<String> {
 }
 pub(crate) fn mkdir(dir: &File, name: &str) -> io::Result<File> {
     let name_c = c(name.as_bytes())?;
-    if unsafe { libc::mkdirat(dir.as_raw_fd(), name_c.as_ptr(), 0o700) } != 0 {
+    if unsafe { libc::mkdirat(dir.as_raw_fd(), name_c.as_ptr(), DIRECTORY_MODE) } != 0 {
         return Err(io::Error::last_os_error());
     }
-    open(dir, name, true)
+    let created = open(dir, name, true)?;
+    // mkdirat 的模式受 umask 约束；权限要与 umask 无关，所以建好之后按已打开的目录 FD 显式设定。
+    if unsafe { libc::fchmod(created.as_raw_fd(), DIRECTORY_MODE) } != 0 {
+        return Err(io::Error::last_os_error());
+    }
+    Ok(created)
 }
 pub(crate) fn write(dir: &File, name: &str, bytes: &[u8], executable: bool) -> io::Result<()> {
     let name = c(name.as_bytes())?;
@@ -68,10 +79,16 @@ pub(crate) fn write(dir: &File, name: &str, bytes: &[u8], executable: bool) -> i
             dir.as_raw_fd(),
             name.as_ptr(),
             libc::O_WRONLY | libc::O_CREAT | libc::O_EXCL | libc::O_NOFOLLOW | libc::O_CLOEXEC,
-            if executable { 0o755 } else { 0o644 },
+            if executable { EXECUTABLE_MODE } else { FILE_MODE },
         )
     })?;
-    file.write_all(bytes)
+    file.write_all(bytes)?;
+    // 同样与 umask 无关。
+    let mode = if executable { EXECUTABLE_MODE } else { FILE_MODE };
+    if unsafe { libc::fchmod(file.as_raw_fd(), mode) } != 0 {
+        return Err(io::Error::last_os_error());
+    }
+    Ok(())
 }
 pub(crate) fn symlink(dir: &File, name: &str, target: &str) -> io::Result<()> {
     let name = c(name.as_bytes())?;

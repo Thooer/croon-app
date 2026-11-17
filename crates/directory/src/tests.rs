@@ -422,6 +422,73 @@ fn lstat_import_preserves_links_without_reading_target_and_round_trips_modes() {
     assert!(import(&content, &source, Limits { nodes: 1, bytes: 1 }).is_err());
 }
 #[test]
+fn materialized_modes_follow_the_documented_ones_not_the_umask() {
+    // docs/Directory/README.md：目录 0755，普通文件 0644，可执行文件 0755，与 umask 无关。
+    let temp = Temp::new();
+    let content = content_at(&temp.0.join("store"));
+    let source = temp.0.join("source");
+    std::fs::create_dir_all(source.join("sub/deeper")).unwrap();
+    std::fs::write(source.join("plain"), b"p").unwrap();
+    std::fs::write(source.join("sub/run.sh"), b"#!/bin/sh\n").unwrap();
+    std::fs::write(source.join("sub/deeper/note"), b"n").unwrap();
+    std::fs::set_permissions(
+        source.join("sub/run.sh"),
+        std::fs::Permissions::from_mode(0o700),
+    )
+    .unwrap();
+    let limits = Limits {
+        nodes: 100,
+        bytes: 1000,
+    };
+    let id = import(&content, &source, limits).unwrap();
+    for umask in [0o022, 0o077] {
+        let out = temp.0.join(format!("out-{umask:o}"));
+        std::fs::create_dir(&out).unwrap();
+        let old = unsafe { libc::umask(umask) };
+        let done = materialize(&content, &id, &out, limits);
+        unsafe { libc::umask(old) };
+        done.unwrap();
+        let mode = |p: &str| std::fs::metadata(out.join(p)).unwrap().permissions().mode() & 0o777;
+        assert_eq!(mode("sub"), 0o755, "umask {umask:o}");
+        assert_eq!(mode("sub/deeper"), 0o755, "umask {umask:o}");
+        assert_eq!(mode("plain"), 0o644, "umask {umask:o}");
+        assert_eq!(mode("sub/run.sh"), 0o755, "umask {umask:o}");
+    }
+}
+#[test]
+#[ignore = "requires local Docker and preloaded alpine:latest; creates only unique test containers"]
+fn a_snapshot_with_subdirectories_is_readable_by_the_next_execution() {
+    // 第一次执行在 /work 里建出子目录并交回；第二次执行以那份快照为输入，第一条 cp 要读得到它。
+    // 容器去掉了越权读的 capability，所以输入目录自己的权限必须让它读得到。
+    let f = Fixture::new("alpine:latest");
+    let first = f.request(
+        &["/bin/sh", "-c", "mkdir -p /work/__pycache__ && echo x > /work/__pycache__/a.pyc && echo y > /work/b"],
+        5,
+    );
+    let mut run = f.call("first", &first).unwrap();
+    let done = finish(run.as_mut());
+    let produced = done.outcome["value"]["snapshot"].as_str().unwrap().to_owned();
+    assert!(read(&f.content, &produced).unwrap().contains_key("__pycache__"));
+
+    let second = json!({"snapshot": produced, "mounts": {}, "argv": ["/bin/sh", "-c", "cat /work/__pycache__/a.pyc"], "stdin": "", "timeout": 5});
+    let mut run = f
+        .docker
+        .start(&Call {
+            instance: "test",
+            generation: 1,
+            key: "second",
+            source: "test",
+            attempt: "second",
+            value: &second,
+            dependencies: std::slice::from_ref(&produced),
+            content: f.content.clone(),
+        })
+        .expect("子目录里有内容的快照，下一次执行要起得来");
+    let done = finish(run.as_mut());
+    assert_eq!(done.outcome["value"]["exit"], 0, "{}", done.outcome);
+    assert_eq!(done.outcome["value"]["stdout"], "x\n");
+}
+#[test]
 fn materialization_rejects_link_destination_and_file_dependency_smuggling() {
     let temp = Temp::new();
     let content = content_at(&temp.0.join("store"));

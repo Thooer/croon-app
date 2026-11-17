@@ -3,6 +3,8 @@ name = "directory"
 description = "Directory：目录导入、物化与 Docker 中的隔离文件执行"
 version.workspace = true
 edition.workspace = true
+license.workspace = true
+repository.workspace = true
 rust-version.workspace = true
 publish.workspace = true
 

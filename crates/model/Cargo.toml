@@ -3,6 +3,8 @@ name = "model"
 description = "Model：model.generate 的宿主适配"
 version.workspace = true
 edition.workspace = true
+license.workspace = true
+repository.workspace = true
 rust-version.workspace = true
 publish.workspace = true
 

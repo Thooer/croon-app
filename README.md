@@ -109,3 +109,7 @@ cargo test --test smoke -- --ignored         # 会调用 config/agent-provider.j
 文档入口是 `docs/README.md`。具体领域从 `docs/Directory/README.md`、`docs/Model/README.md`、`docs/Host/README.md` 和 `docs/Library/README.md` 进入。
 
 读上游按 crate 头部进：`croon-eval`（Value、Schema、Definition 的形状与 Language 契约）、`croon-port`（宿主 Port 与内容交付）、`croon-tree`（Tree）、`kernel`（运行时与宿主义务）、`lang0`（写法、Interface、模块）。上游文档在 croon:docs/README.md 与 croon-lang0:docs/README.md，按那里的「地图」找。
+
+## 许可证
+
+Apache License 2.0，全文见 LICENSE。

@@ -82,6 +82,18 @@ fn croon_app(
     command
 }
 
+/// 续做：只给配置与结果目录，任务与仓库取自 Journal。
+fn resume(config: &std::path::Path, out: &std::path::Path) -> Command {
+    let mut command = Command::new(env!("CARGO_BIN_EXE_croon-app"));
+    command
+        .arg("resume")
+        .arg("--config")
+        .arg(config)
+        .arg("--out")
+        .arg(out);
+    command
+}
+
 /// 在 exec 在途时 SIGKILL，用同一个 Kernel 目录与 state 目录重跑；`make` 造这一轮的脚本化模型，
 /// 成功之后结果目录里要有 `expect` 这个文件、内容是 `content`。
 fn kills_during_an_exec(make: impl Fn(String) -> Rc<dyn Port>, task: &str, expect: &str, content: &str) {
@@ -137,9 +149,10 @@ fn kills_during_an_exec(make: impl Fn(String) -> Rc<dyn Port>, task: &str, expec
     child.kill().unwrap();
     child.wait().unwrap();
 
-    // 同一个 Kernel 目录与 state 目录重跑：旧 attempt 退役，新 attempt 重做。
+    // 同一个 Kernel 目录与 state 目录续做：旧 attempt 退役，新 attempt 重做。仓库已经不在原处，输入取自 Journal。
     let out = temp.root.join("out");
-    let rerun = croon_app(&config, &repo, &out, task).output().unwrap();
+    fs::rename(&repo, temp.root.join("repo-gone")).unwrap();
+    let rerun = resume(&config, &out).output().unwrap();
     let stdout = String::from_utf8_lossy(&rerun.stdout).into_owned();
     assert!(
         rerun.status.success(),
@@ -175,7 +188,7 @@ fn kills_during_an_exec(make: impl Fn(String) -> Rc<dyn Port>, task: &str, expec
 }
 
 #[test]
-#[ignore = "requires local Docker with croon-work:1 and python:3.12-slim"]
+#[ignore = "requires local Docker with croon-work:2 and python:3.12-slim"]
 fn killing_the_host_during_an_exec_retires_the_attempt_and_redoes_it() {
     kills_during_an_exec(
         |identity| Rc::new(Slow { identity }),
@@ -187,7 +200,7 @@ fn killing_the_host_during_an_exec_retires_the_attempt_and_redoes_it() {
 
 /// 造出来的主体在跑慢命令时被杀：它的 exec 是另一个 Instance 发的，旧 attempt 照样退役、新 attempt 重做。
 #[test]
-#[ignore = "requires local Docker with croon-work:1 and python:3.12-slim"]
+#[ignore = "requires local Docker with croon-work:2 and python:3.12-slim"]
 fn killing_the_host_during_a_made_agents_exec_retires_the_attempt_and_redoes_it() {
     kills_during_an_exec(
         |identity| Rc::new(Making { identity, slow: true }),

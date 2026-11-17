@@ -1,15 +1,20 @@
-//! croon-app：一次性运行一个任务。
-//! 用法：croon-app run --config 配置 --repo 仓库 --out 新目录 任务
+//! croon-app：开始一次运行，或续做被中断的运行。
+//! 用法：
+//!   croon-app run --config 配置 --repo 仓库 --out 结果目录 [--tools 清单] 任务
+//!   croon-app resume --config 配置 --out 结果目录
 //! 参考：docs/Host/README.md（客户端）。
 
 use std::path::PathBuf;
 use std::process::ExitCode;
 
-const USAGE: &str = "用法：croon-app run --config 配置 --repo 仓库 --out 新目录 [--tools 清单] 任务";
+const USAGE: &str = "用法：
+  croon-app run --config 配置 --repo 仓库 --out 结果目录 [--tools 清单] 任务
+  croon-app resume --config 配置 --out 结果目录";
 
 fn main() -> ExitCode {
     let args: Vec<String> = std::env::args().skip(1).collect();
-    if args.first().map(String::as_str) != Some("run") {
+    let command = args.first().map(String::as_str);
+    if !matches!(command, Some("run" | "resume")) {
         eprintln!("{USAGE}");
         return ExitCode::from(2);
     }
@@ -28,11 +33,20 @@ fn main() -> ExitCode {
             }
         }
     }
-    let (Some(config), Some(repo), Some(out), Some(task)) = (config, repo, out, task) else {
+    let (Some(config), Some(out)) = (config, out) else {
         eprintln!("{USAGE}");
         return ExitCode::from(2);
     };
-    let assembly = match tools.map(|p| std::fs::read(&p).map_err(|e| e.to_string()).and_then(|b| serde_json::from_slice(&b).map_err(|e| e.to_string()))) {
+    let resuming = command == Some("resume");
+    if resuming && (repo.is_some() || task.is_some() || tools.is_some()) {
+        eprintln!("resume 不收仓库、任务与清单：它们取自 Journal\n{USAGE}");
+        return ExitCode::from(2);
+    }
+    let assembly = match tools.map(|p| {
+        std::fs::read(&p)
+            .map_err(|e| e.to_string())
+            .and_then(|b| serde_json::from_slice(&b).map_err(|e| e.to_string()))
+    }) {
         None => host::Assembly::default(),
         Some(Ok(tools)) => host::Assembly {
             tools: Some(tools),
@@ -43,7 +57,17 @@ fn main() -> ExitCode {
             return ExitCode::from(2);
         }
     };
-    match host::Settings::load(&config).and_then(|s| host::run(&s, assembly, &repo, &task, &out)) {
+    let result = host::Settings::load(&config).and_then(|settings| {
+        if resuming {
+            host::resume(&settings, assembly, &out)
+        } else {
+            let (Some(repo), Some(task)) = (repo, task) else {
+                return Err(host::Error(USAGE.into()));
+            };
+            host::run(&settings, assembly, &repo, &task, &out)
+        }
+    });
+    match result {
         Ok(finished) => {
             println!("{}", finished.summary);
             println!("结果：{}（{}）", out.display(), finished.snapshot);

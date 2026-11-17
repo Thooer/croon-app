@@ -1,5 +1,5 @@
 //! 模型调用失败的两类处置，见 docs/Model/README.md「失败」与 docs/Host/README.md「客户端」：
-//! 宿主故障让 Kernel 停下 W0，客户端带着原因退出、不盲等；修好之后同一个 Kernel 目录重跑，重开 W0 接着走。
+//! 宿主故障让 Kernel 停下 W0，客户端带着原因退出、不盲等；修好之后同一个 Kernel 目录 resume，重开 W0 接着走。
 //! use 失败交还 body，W0 以失败结束，客户端照常收到结束状态并报出。
 
 mod support;
@@ -76,7 +76,7 @@ fn repo(temp: &Temp) -> std::path::PathBuf {
 }
 
 #[test]
-#[ignore = "requires local Docker with croon-work:1 and python:3.12-slim"]
+#[ignore = "requires local Docker with croon-work:2 and python:3.12-slim"]
 fn a_host_fault_ends_the_run_and_a_rerun_reopens_and_finishes() {
     let temp = Temp::new();
     let repo = repo(&temp);
@@ -107,7 +107,7 @@ fn a_host_fault_ends_the_run_and_a_rerun_reopens_and_finishes() {
 
     // 修好模型，同一个 Kernel 目录重跑：重开被停下的 W0，从 Journal 接着走。
     let out2 = temp.root.join("out2");
-    let done = host::run(
+    let done = host::resume(
         &settings,
         host::Assembly {
             model: Some(Rc::new(Scripted {
@@ -117,8 +117,6 @@ fn a_host_fault_ends_the_run_and_a_rerun_reopens_and_finishes() {
             fault: None,
             tools: None,
         },
-        &repo,
-        task,
         &out2,
     )
     .unwrap_or_else(|e| panic!("重开后应当跑完：{e}"));
@@ -127,7 +125,7 @@ fn a_host_fault_ends_the_run_and_a_rerun_reopens_and_finishes() {
 }
 
 #[test]
-#[ignore = "requires local Docker with croon-work:1 and python:3.12-slim"]
+#[ignore = "requires local Docker with croon-work:2 and python:3.12-slim"]
 fn a_use_failure_ends_w0_with_a_failure_that_the_root_receives() {
     let temp = Temp::new();
     let repo = repo(&temp);
@@ -153,4 +151,39 @@ fn a_use_failure_ends_w0_with_a_failure_that_the_root_receives() {
     assert!(start.elapsed() < Duration::from_secs(60), "不能盲等");
     assert!(error.0.contains("W0 失败"), "{error}");
     assert!(error.0.contains("context too long"), "{error}");
+}
+
+#[test]
+#[ignore = "requires local Docker with croon-work:2 and python:3.12-slim"]
+fn run_refuses_a_directory_that_already_has_a_run_and_resume_needs_one() {
+    let temp = Temp::new();
+    let repo = repo(&temp);
+    let system = temp.system("twice");
+    let settings =
+        host::Settings::load(&temp.config(&system, &temp.root.join("unused.json"))).unwrap();
+    let scripted = |system: &str| host::Assembly {
+        model: Some(Rc::new(Scripted {
+            identity: format!("{system}/model"),
+            three_way: false,
+        })),
+        fault: None,
+        tools: None,
+    };
+
+    let none = host::resume(&settings, scripted(&system), &temp.root.join("out0"))
+        .err()
+        .expect("没有运行可续做");
+    assert!(none.0.contains("先 run"), "{none}");
+
+    host::run(&settings, scripted(&system), &repo, "修好 a.py", &temp.root.join("out1")).unwrap();
+    let again = host::run(&settings, scripted(&system), &repo, "修好 a.py", &temp.root.join("out2"))
+        .err()
+        .expect("已有运行时 run 要报错");
+    assert!(again.0.contains("resume"), "{again}");
+    assert!(!temp.root.join("out2").exists());
+
+    // 已经结束的运行再 resume，得到同样的结果；结果目录是空的也行。
+    fs::create_dir(temp.root.join("out3")).unwrap();
+    let same = host::resume(&settings, scripted(&system), &temp.root.join("out3")).unwrap();
+    assert_eq!(same.summary, "已修好 a.py");
 }

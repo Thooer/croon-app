@@ -6,7 +6,7 @@
 //! - 同一个系统名必须始终配同一个 Kernel 目录与 state 目录；恢复身份由系统名派生，写进 Journal。
 //! - 同一个 Kernel 目录再跑一次就是恢复：已有 root entry 时不再创建，按原键重报同样的几步；
 //!   任务或仓库变了是重放分歧。
-//! - 结果只写进一个新的空目录，不碰用户的仓库。
+//! - 结果只写进一个新的或空的目录，不碰用户的仓库。续做用 [`resume`]：任务与导入的目录取自 Journal，不读磁盘。
 //! - [`Assembly`] 里给的模型 Port，恢复身份必须是 `<系统名>/model`；故障点只用于测试。
 //! - 有 Instance 被宿主停下时，[`run`] 带着停止原因返回错误，不会一直等；同一个 Kernel 目录
 //!   再跑一次时先重开它们。业务失败是 Journal 里的事实，重跑只重放出同样的失败。
@@ -153,18 +153,23 @@ impl Settings {
         })
     }
 
-    fn model_port(&self) -> Result<Rc<dyn Port>> {
+    /// 配置里的模型来源；`resuming` 时录制是接着已有的录像追加。
+    fn model_port(&self, resuming: bool) -> Result<Rc<dyn Port>> {
         let identity = format!("{}/model", self.system);
         Ok(match &self.model {
             ModelSource::Provider(provider) => Rc::new(model::OpenAiCompatible::from_config_file(
                 provider, identity,
             )?),
-            ModelSource::Record { provider, record } => Rc::new(model::Recorder::new(
-                Rc::new(model::OpenAiCompatible::from_config_file(
+            ModelSource::Record { provider, record } => {
+                let inner = Rc::new(model::OpenAiCompatible::from_config_file(
                     provider, identity,
-                )?),
-                record.clone(),
-            )?),
+                )?);
+                if resuming && record.exists() {
+                    Rc::new(model::Recorder::resume(inner, record.clone())?)
+                } else {
+                    Rc::new(model::Recorder::new(inner, record.clone())?)
+                }
+            }
             ModelSource::Replay(cassette) => Rc::new(model::Replayer::open(cassette, identity)?),
         })
     }
@@ -303,7 +308,8 @@ impl Client<'_> {
     }
 }
 
-/// 按装配的五步跑完一个任务，结果物化到新的空目录 `out`。
+/// 开始一次运行：按装配的五步跑完一个任务，结果物化到新的空目录 `out`。这个 Kernel 目录里已经有 root entry 时
+/// 报错：续做用 [`resume`]。
 pub fn run(
     settings: &Settings,
     assembly: Assembly,
@@ -311,6 +317,29 @@ pub fn run(
     task: &str,
     out: &Path,
 ) -> Result<Finished> {
+    drive(settings, assembly, Some((repo, task)), out)
+}
+
+/// 继续一次被中断的运行：任务、导入的目录与工具清单都取自 Journal，不读命令行与磁盘。已经结束的运行得到同样的结果。
+pub fn resume(settings: &Settings, assembly: Assembly, out: &Path) -> Result<Finished> {
+    drive(settings, assembly, None, out)
+}
+
+/// 这次运行：root entry 诞生时记下的输入，恢复时从 Journal 取回。
+struct Job {
+    task: String,
+    w0: String,
+    home: String,
+    snapshot: String,
+}
+
+fn drive(
+    settings: &Settings,
+    assembly: Assembly,
+    start: Option<(&Path, &str)>,
+    out: &Path,
+) -> Result<Finished> {
+    let resuming = start.is_none();
     let model = match assembly.model {
         Some(model) => {
             let identity = format!("{}/model", settings.system);
@@ -322,7 +351,7 @@ pub fn run(
             }
             model
         }
-        None => settings.model_port()?,
+        None => settings.model_port(resuming)?,
     };
     let exec: Rc<dyn Port> = Rc::new(directory::Docker::new(settings.directory.clone())?);
     let inferrer: Rc<dyn Port> = Rc::new(infer::Infer::new(format!("{}/infer", settings.system)));
@@ -337,14 +366,29 @@ pub fn run(
         },
     )?;
 
-    let content = Content::from_inputs(kernel.store().clone(), &[], BUDGETS)?;
-    let home = home_bundle(&content, settings.limits(), assembly.tools.as_ref())?;
-    let w0 = definition(&content, library::source("w0.py"), &home)?;
-    let snapshot = directory::import(&content, repo, settings.limits())?;
-
-    let root = match kernel.index().root().map(ToString::to_string) {
-        Some(root) => root,
-        None => {
+    let existing = kernel.index().root().map(ToString::to_string);
+    let (root, job) = match (existing, start) {
+        (Some(_), Some(_)) => {
+            return Err(Error(
+                "这个 Kernel 目录里已经有一次运行：续做用 resume，要重新做就换一个 Kernel 目录".into(),
+            ));
+        }
+        (None, None) => return Err(Error("这个 Kernel 目录里没有运行可续做：先 run".into())),
+        (Some(root), None) => {
+            let job = recorded(&kernel, &root)?;
+            (root, job)
+        }
+        (None, Some((repo, task))) => {
+            let content = Content::from_inputs(kernel.store().clone(), &[], BUDGETS)?;
+            let home = home_bundle(&content, settings.limits(), assembly.tools.as_ref())?;
+            let w0 = definition(&content, library::source("w0.py"), &home)?;
+            let snapshot = directory::import(&content, repo, settings.limits())?;
+            let job = Job {
+                task: task.to_owned(),
+                w0,
+                home,
+                snapshot,
+            };
             let root_definition = schema("host.root");
             let raw = content.put_json(&root_definition)?;
             let bundle = content.pack(&raw, &[])?;
@@ -365,15 +409,25 @@ pub fn run(
                 "infer".into(),
                 json!({"host": inferrer.id(), "spec": requires["infer"]}),
             );
-            let input = json!({"value": null, "dependencies": sorted(vec![w0.clone(), home.clone(), snapshot.clone()])});
-            kernel.create_root(
+            let input = json!({
+                "value": {"task": job.task, "definition": job.w0, "home": job.home, "snapshot": job.snapshot},
+                "dependencies": sorted(vec![job.w0.clone(), job.home.clone(), job.snapshot.clone()]),
+            });
+            let root = kernel.create_root(
                 &bundle,
                 &input,
                 &json!({"back": "port/done"}),
                 &json!({"sources": sources}),
-            )?
+            )?;
+            (root, job)
         }
     };
+    let Job {
+        task: _,
+        w0,
+        home,
+        snapshot,
+    } = &job;
     for (port, provider) in [("engine", model), ("exec", exec), ("infer", inferrer)] {
         let handle = kernel.index().journals[root.as_str()].birth()["wire"][port]
             .as_str()
@@ -405,7 +459,7 @@ pub fn run(
         json!({"port": "instantiate"}),
         json!({
             "definition": w0,
-            "input": {"value": {"task": task, "home": home, "snapshot": snapshot}, "dependencies": sorted(vec![home.clone(), snapshot.clone()])},
+            "input": {"value": {"task": job.task, "home": home, "snapshot": snapshot}, "dependencies": sorted(vec![home.clone(), snapshot.clone()])},
             "seats": {},
             "self": {"back": "port/done"}
         }),
@@ -438,7 +492,14 @@ pub fn run(
         snapshot: text(&outcome["value"], "snapshot")?,
     };
 
-    std::fs::create_dir(out)?;
+    if out.exists() {
+        // 恢复时上次可能已经建好了结果目录：空的可以接着用，有东西的不覆盖。
+        if std::fs::read_dir(out)?.next().is_some() {
+            return Err(Error(format!("结果目录 {} 不是空的", out.display())));
+        }
+    } else {
+        std::fs::create_dir(out)?;
+    }
     let view = Content::from_inputs(
         kernel.store().clone(),
         &[finished.snapshot.clone()],
@@ -446,6 +507,25 @@ pub fn run(
     )?;
     directory::materialize(&view, &finished.snapshot, out, settings.limits())?;
     Ok(finished)
+}
+
+/// 取回 root entry 诞生时记下的这次运行。
+fn recorded(kernel: &Kernel, root: &str) -> Result<Job> {
+    let birth = kernel.index().journals[root].birth();
+    let id = birth["input"]["value"]
+        .as_str()
+        .ok_or_else(|| Error("root entry 的诞生里没有输入".into()))?;
+    let value = kernel
+        .store()
+        .get_json(&croon_eval::value::ValueId::parse(id).ok_or_else(|| Error(format!("root 的输入 ID 不对：{id}")))?)
+        .map_err(|e| Error(e.to_string()))?
+        .ok_or_else(|| Error(format!("内容库里没有 root 的输入 {id}")))?;
+    Ok(Job {
+        task: text(&value, "task")?,
+        w0: text(&value, "definition")?,
+        home: text(&value, "home")?,
+        snapshot: text(&value, "snapshot")?,
+    })
 }
 
 /// 记录里的 `at`：UTC 的 RFC 3339。

@@ -75,7 +75,7 @@ impl Execution for Ready {
 }
 
 #[test]
-#[ignore = "requires local Docker with croon-work:1 and python:3.12-slim"]
+#[ignore = "requires local Docker with croon-work:2 and python:3.12-slim"]
 fn a_wrong_source_comes_back_as_a_diagnostic_and_a_fixed_one_runs() {
     let temp = Temp::new();
     let repo = temp.root.join("repo");
@@ -135,7 +135,7 @@ fn a_wrong_source_comes_back_as_a_diagnostic_and_a_fixed_one_runs() {
     fs::write(&empty, r#"{"entries":[]}"#).unwrap();
     let settings = host::Settings::load(&temp.config(&system, &empty)).unwrap();
     let out2 = temp.root.join("out2");
-    let again = host::run(&settings, host::Assembly::default(), &repo, task, &out2).unwrap();
+    let again = host::resume(&settings, host::Assembly::default(), &out2).unwrap();
     assert_eq!(again.snapshot, first.snapshot);
     assert_eq!(again.summary, first.summary);
 }

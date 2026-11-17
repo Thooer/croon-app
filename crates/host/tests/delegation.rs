@@ -61,18 +61,18 @@ fn delegation(three_way: bool) {
     fs::write(&empty, "{\"entries\":[]}").unwrap();
     let settings = host::Settings::load(&temp.config(&first, &empty)).unwrap();
     let out3 = temp.root.join("out3");
-    let again = host::run(&settings, host::Assembly::default(), &repo, task, &out3).unwrap();
+    let again = host::resume(&settings, host::Assembly::default(), &out3).unwrap();
     assert_eq!(again.snapshot, recorded.snapshot);
 }
 
 #[test]
-#[ignore = "requires local Docker with croon-work:1 and python:3.12-slim"]
+#[ignore = "requires local Docker with croon-work:2 and python:3.12-slim"]
 fn delegation_takes_the_candidate_when_w0_has_not_moved() {
     delegation(false);
 }
 
 #[test]
-#[ignore = "requires local Docker with croon-work:1 and python:3.12-slim"]
+#[ignore = "requires local Docker with croon-work:2 and python:3.12-slim"]
 fn delegation_merges_by_directory_when_w0_has_moved() {
     delegation(true);
 }

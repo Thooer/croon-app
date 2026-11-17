@@ -33,4 +33,6 @@ def main(topic: str, engine: Generate) -> str:
 
 用到 `croon.send` 就要 `import croon`；Port 类型（`Generate`）从 `library.model` 导入，参数名 `engine` 就是接线的名字。
 
+exec 的容器里有 python3 与 pytest，没有网络：要运行或测试代码，用 `run` 工具（如 `python3 -m pytest`）。
+
 造好（`make`）就成了你的一个工具，直接调用；它交回目录的，结果里有 `name` 与 `diff`，满意再 `merge`。

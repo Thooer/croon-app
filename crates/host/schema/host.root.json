@@ -2,18 +2,71 @@
   "evaluator": "external",
   "interface": {
     "description": "root entry：根在系统内交任务、取结果",
-    "signature": {"in": {}, "out": {}},
+    "signature": {
+      "in": {
+        "type": "object",
+        "description": "这次运行：宿主在诞生时记下，恢复时从 Journal 取回，不再读命令行与磁盘",
+        "properties": {
+          "task": {
+            "type": "string",
+            "description": "交给被运行的 Definition 的任务"
+          },
+          "definition": {
+            "type": "string",
+            "description": "被运行的 Definition 的 Bundle ID，恢复时不用重新导入、重新推导"
+          },
+          "home": {
+            "type": "string",
+            "description": "Library 目录的 Bundle ID"
+          },
+          "snapshot": {
+            "type": "string",
+            "description": "调用方交来的目录的 Bundle ID"
+          }
+        },
+        "required": [
+          "task",
+          "definition",
+          "home",
+          "snapshot"
+        ],
+        "additionalProperties": false
+      },
+      "out": {}
+    },
     "provides": {
-      "done": {"description": "收结束状态", "in": {"$block": "definition.outcome"}, "attach": {"additionalProperties": false}}
+      "done": {
+        "description": "收结束状态",
+        "in": {
+          "$block": "definition.outcome"
+        },
+        "attach": {
+          "additionalProperties": false
+        }
+      }
     },
     "requires": {
-      "pack": {"$block": "reference.kernel#/pack"},
-      "construct": {"$block": "reference.kernel#/construct"},
-      "instantiate": {"$block": "reference.kernel#/instantiate"},
-      "engine": {"$block": "model.generate"},
-      "exec": {"$block": "directory.exec"},
-      "infer": {"$block": "definition.infer"},
-      "back": {"$block": "host.root#/interface/provides/done"}
+      "pack": {
+        "$block": "reference.kernel#/pack"
+      },
+      "construct": {
+        "$block": "reference.kernel#/construct"
+      },
+      "instantiate": {
+        "$block": "reference.kernel#/instantiate"
+      },
+      "engine": {
+        "$block": "model.generate"
+      },
+      "exec": {
+        "$block": "directory.exec"
+      },
+      "infer": {
+        "$block": "definition.infer"
+      },
+      "back": {
+        "$block": "host.root#/interface/provides/done"
+      }
     }
   }
 }

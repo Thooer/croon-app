@@ -84,7 +84,7 @@ impl Execution for Ready {
 }
 
 #[test]
-#[ignore = "requires local Docker with croon-work:1 and python:3.12-slim"]
+#[ignore = "requires local Docker with croon-work:2 and python:3.12-slim"]
 fn different_shapes_run_and_a_wiring_mistake_comes_back_readable() {
     let temp = Temp::new();
     let repo = temp.root.join("repo");

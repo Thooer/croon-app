@@ -18,7 +18,7 @@
 4. 作为客户端驱动 root entry：构造要运行的 Definition，实例化它，输入照它的 Signature，见「运行哪一个 Definition」；按它的 Required port 附带 root entry 手里的同名 Port，向它的 Notify 登记并附带接到 done 的 back，按 via 取结束结果。它运行中要用的别的 Definition 都从 Library 目录载入，宿主不预先构造。
 5. 交回结果，见「结果与采用」。
 
-**恢复时输入取自 Journal。** 同一个 Kernel 目录再跑一次是恢复：root entry 已经存在时，宿主不重新导入 Library 目录与调用方的目录，而用 Journal 里这次运行记下的那几份 Bundle。磁盘在两次运行之间会变，被采用过，或被用户改过，重新导入就会报出不同的 Atom，成了重放分歧。
+**恢复时输入取自 Journal。** root entry 诞生时的输入记下这次运行：任务、被运行的 Definition、Library 目录与调用方的目录各自的 Bundle ID，形状在 `host.root` 的 Signature。同一个 Kernel 目录 `resume` 时，宿主不重新导入、不重新构造，从这份输入取回它们。磁盘在两次运行之间会变，被采用过，或被用户改过，重新导入就会报出不同的 Atom，成了重放分歧；App 升级后 W0 的源码变了也一样。所以恢复不读命令行与磁盘，同一个 Kernel 目录始终接着做同一件事。
 
 ## 运行哪一个 Definition
 
@@ -89,14 +89,19 @@ Required port 在诞生时写定，运行中再接新东西是 Kernel 的待定�
 
 ## 客户端
 
-客户端是宿主进程里的命令：运行一个 Definition，等结束，交回结果；或把交回的结果采用进一个目录。同一个 Kernel 目录里已经有 root entry 时，宿主不再创建，按原键重报同样的几步，这就是恢复，输入取自 Journal，见「装配」。
+客户端是宿主进程里的命令：运行一个 Definition，等结束，交回结果；或把交回的结果采用进一个目录。
+
+- **run**：开始一次运行。一个 Kernel 目录只有一个根，所以这个目录里已经有 root entry 时 `run` 报错并提示用 `resume`，不静默忽略参数。
+- **resume**：继续一次被中断的运行，只要配置，不再给任务与目录：任务、导入的目录与工具清单都取自 Journal，见「装配」；宿主不再创建 root entry，按原键重报同样的几步，已提交的直接得到结果。关机、被杀、宿主故障停下之后，都是这一条命令。模型来源是录制时，接着追加到同一盘录像，见 ../Model/README.md「录制与回放」；结果目录要还不存在或是空的。已经结束的运行再 `resume` 得到同样的结果。
+
+没有「列出未完成的运行」：Kernel 目录就是运行，配置里写着是哪一个。
 
 宿主故障由宿主处置，见 croon:docs/Kernel/Instance.md「执行」：
 
 - **运行中**：只要有 Instance 被宿主停下，这次运行就跑不完，一次性客户端也修不了宿主，所以不再等，带着停止原因报错退出，如模型配置错了。在途的文件执行不用收尾，下次启动时的恢复会退役它的 attempt。
-- **再跑一次**：修好原因后重跑同一个 Kernel 目录，就是显式的恢复。宿主装上 Port 之后，重开被停下的 Instance，从 Journal 接着走；原因还在，它会再停一次，再报一次。Kernel 拒绝重开的（如还有没确认的世界效果）照实报出。
+- **再跑一次**：修好原因后对同一个 Kernel 目录 `resume`，就是显式的恢复。宿主装上 Port 之后，重开被停下的 Instance，从 Journal 接着走；原因还在，它会再停一次，再报一次。Kernel 拒绝重开的（如还有没确认的世界效果）照实报出。
 
-业务失败不在此列：它是 Journal 里的事实，重跑只是重放出同样的失败，要重新做就换一个 Kernel 目录。它的执行位置在系统外：每一步用固定的键报出；宿主崩溃后用同一个 Kernel 目录重开，以原键重报，已提交的直接得到结果，不会重做，见 croon:docs/Kernel/Definition/Cognition.md「求值器在系统外」。
+业务失败不在此列：它是 Journal 里的事实，`resume` 只是重放出同样的失败，要重新做就换一个 Kernel 目录。它的执行位置在系统外：每一步用固定的键报出；宿主崩溃后用同一个 Kernel 目录重开，以原键重报，已提交的直接得到结果，不会重做，见 croon:docs/Kernel/Definition/Cognition.md「求值器在系统外」。
 
 ## 三档用法
 

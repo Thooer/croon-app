@@ -139,13 +139,19 @@ fn recovers_at_every_commit(make: impl Fn(String) -> Rc<dyn Port>, task: &str) {
                 &temp.root.join(format!("{label}-crashed")),
             );
             assert!(crashed.is_err(), "{label}：Kernel 应当在这里停下");
-            let done = host::run(
+            // 磁盘在两次之间变了也不要紧：恢复用的是 Journal 里记下的输入，不读仓库。
+            let moved = temp.root.join("repo-moved");
+            let _ = fs::remove_dir_all(&moved);
+            fs::rename(&repo, &moved).unwrap();
+            let done = host::resume(
                 &settings,
                 Assembly::default(),
-                &repo,
-                task,
                 &temp.root.join(format!("{label}-out")),
             )
+            .map(|d| {
+                fs::rename(&moved, &repo).unwrap();
+                d
+            })
             .unwrap_or_else(|e| panic!("{label}：恢复失败：{e}"));
             assert_eq!(done.snapshot, baseline.snapshot, "{label}");
             assert_eq!(done.summary, baseline.summary, "{label}");
@@ -155,7 +161,7 @@ fn recovers_at_every_commit(make: impl Fn(String) -> Rc<dyn Port>, task: &str) {
 }
 
 #[test]
-#[ignore = "requires local Docker with croon-work:1 and python:3.12-slim; runs the task once per commit point"]
+#[ignore = "requires local Docker with croon-work:2 and python:3.12-slim; runs the task once per commit point"]
 fn the_host_recovers_at_every_commit_with_the_same_result() {
     recovers_at_every_commit(
         |identity| {
@@ -170,7 +176,7 @@ fn the_host_recovers_at_every_commit_with_the_same_result() {
 
 /// 造出来的主体：源码是模型写的，infer、pack、construct、instantiate、收取每一步前后停下都能恢复。
 #[test]
-#[ignore = "requires local Docker with croon-work:1 and python:3.12-slim; runs the task once per commit point"]
+#[ignore = "requires local Docker with croon-work:2 and python:3.12-slim; runs the task once per commit point"]
 fn the_host_recovers_at_every_commit_when_the_agent_is_made_on_the_way() {
     recovers_at_every_commit(
         |identity| {

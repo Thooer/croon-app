@@ -45,7 +45,7 @@ impl Tape {
 }
 
 impl Recorder {
-    /// 录像文件不能已经存在：一次录制一盘，不在旧录像上追加。
+    /// 新的一盘：录像文件不能已经存在，不在旧录像上覆盖。
     pub fn new(inner: Rc<dyn Port>, path: impl Into<PathBuf>) -> Result<Self, HostError> {
         let path = path.into();
         if fs::symlink_metadata(&path).is_ok() {
@@ -56,6 +56,24 @@ impl Recorder {
             tape: Rc::new(Tape {
                 path,
                 entries: RefCell::new(Vec::new()),
+            }),
+        })
+    }
+}
+
+impl Recorder {
+    /// 同一次运行的延续：读进已有的条目，之后接着往同一盘追加。文件要已经存在，形状要对。
+    pub fn resume(inner: Rc<dyn Port>, path: impl Into<PathBuf>) -> Result<Self, HostError> {
+        let path = path.into();
+        let value: Json = serde_json::from_slice(&fs::read(&path).map_err(host)?).map_err(host)?;
+        croon_eval::schema::validate(&schema("model.cassette"), &value)
+            .map_err(|error| HostError(format!("model.cassette: {error:?}")))?;
+        let entries = value["entries"].as_array().cloned().unwrap_or_default();
+        Ok(Self {
+            inner,
+            tape: Rc::new(Tape {
+                path,
+                entries: RefCell::new(entries),
             }),
         })
     }
@@ -228,6 +246,50 @@ mod tests {
             assert!(std::time::Instant::now() < deadline, "collection deadline");
             std::thread::sleep(Duration::from_millis(5));
         }
+    }
+
+    #[test]
+    fn resuming_a_recording_appends_to_the_same_tape_and_keeps_earlier_entries() {
+        let response = json!({"choices":[{"finish_reason":"stop","message":{"content":"done"}}],"usage":{"prompt_tokens":3,"completion_tokens":1}});
+        let root = temp();
+        let path = root.join("cassette.json");
+        let input = |text: &str| json!({"system":"s","messages":[{"role":"user","text":text}],"tools":[]});
+
+        let (base_url, server) = fixture(response.clone(), Duration::ZERO);
+        let first =
+            Recorder::new(Rc::new(config(base_url, Duration::from_secs(5))), &path).unwrap();
+        let a = input("a");
+        finish(first.start(&call(content_scope(content()), &a, "0")).unwrap());
+        server.join().unwrap();
+
+        // 新的一盘不能盖掉旧的；续录读进旧条目，再追加。
+        let (base_url, server) = fixture(response, Duration::ZERO);
+        let inner = Rc::new(config(base_url, Duration::from_secs(5)));
+        assert!(Recorder::new(inner.clone(), &path).is_err(), "新的一盘不盖旧录像");
+        let second = Recorder::resume(inner, &path).unwrap();
+        let b = input("b");
+        finish(second.start(&call(content_scope(content()), &b, "1")).unwrap());
+        server.join().unwrap();
+
+        let tape: Json = serde_json::from_slice(&fs::read(&path).unwrap()).unwrap();
+        let requests: Vec<_> = tape["entries"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|e| e["request"]["messages"][0]["text"].as_str().unwrap().to_owned())
+            .collect();
+        assert_eq!(requests, ["a", "b"], "续录接在后面，旧条目还在");
+        let replayer = Replayer::open(&path, second.id()).unwrap();
+        for (key, text) in [("0", "a"), ("1", "b")] {
+            let r = input(text);
+            finish(replayer.start(&call(content_scope(content()), &r, key)).unwrap());
+        }
+
+        let missing = Recorder::resume(
+            Rc::new(config("http://127.0.0.1:1".into(), Duration::from_secs(1))),
+            root.join("nope.json"),
+        );
+        assert!(missing.is_err(), "没有录像可续");
     }
 
     #[test]

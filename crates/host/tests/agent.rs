@@ -98,7 +98,7 @@ impl Execution for Ready {
 }
 
 #[test]
-#[ignore = "requires local Docker with croon-work:1 and python:3.12-slim"]
+#[ignore = "requires local Docker with croon-work:2 and python:3.12-slim"]
 fn w0_constructs_an_agent_delegates_to_it_and_merges_the_result() {
     let temp = Temp::new();
     let repo = temp.root.join("repo");

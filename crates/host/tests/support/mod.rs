@@ -63,7 +63,7 @@ impl Temp {
                 "state": self.root.join(format!("state-{system}")),
                 "docker": "/usr/bin/docker",
                 "python": "/usr/bin/python3",
-                "image": "croon-work:1",
+                "image": "croon-work:2",
                 "collector_image": "python:3.12-slim",
                 "platform": "linux/amd64",
                 "cpus": "0.5",

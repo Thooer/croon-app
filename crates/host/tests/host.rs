@@ -9,7 +9,7 @@ use std::fs;
 use support::{Temp, llm};
 
 #[test]
-#[ignore = "requires local Docker with croon-work:1 and python:3.12-slim"]
+#[ignore = "requires local Docker with croon-work:2 and python:3.12-slim"]
 fn w0_runs_with_a_replayed_model_and_real_docker_and_recovers_from_the_journal() {
     let temp = Temp::new();
     let system = temp.system("w0");
@@ -57,7 +57,7 @@ fn w0_runs_with_a_replayed_model_and_real_docker_and_recovers_from_the_journal()
     fs::write(&empty, "{\"entries\":[]}").unwrap();
     let settings = host::Settings::load(&temp.config(&system, &empty)).unwrap();
     let out2 = temp.root.join("out2");
-    let second = host::run(&settings, host::Assembly::default(), &repo, task, &out2).unwrap();
+    let second = host::resume(&settings, host::Assembly::default(), &out2).unwrap();
     assert_eq!(second.snapshot, first.snapshot);
     assert_eq!(second.summary, first.summary);
     assert_eq!(fs::read_to_string(out2.join("a.py")).unwrap(), "fixed\n");

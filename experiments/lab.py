@@ -1,11 +1,12 @@
-"""实验的运行器与记录抽取。机制与记录格式见 docs/Experiments.md。
+"""实验的运行器与记录整理。机制、阶段与记录格式见 docs/Experiments.md。
 
 用法（在仓库根）：
-  python3 experiments/lab.py run --batch 名字 --provider 模型配置 [--tasks a,b] [--repeat N]
+  python3 experiments/lab.py run    --batch 名字 --provider 模型配置 [--tasks a,b] [--set tune|holdout] [--repeat N] [--jobs J]
+  python3 experiments/lab.py check  --batch 名字      对已有的尝试重新整理与判定，不再调模型
   python3 experiments/lab.py report --batch 名字
-  python3 experiments/lab.py check  --batch 名字        重新检查已有的尝试，不再调模型
 """
 import argparse
+import concurrent.futures
 import json
 import pathlib
 import shutil
@@ -17,8 +18,9 @@ ROOT = pathlib.Path(__file__).resolve().parent.parent
 TASKS = ROOT / "experiments" / "tasks"
 RUNS = ROOT / "experiments" / "runs"
 APP = ROOT / "target" / "debug" / "croon-app"
-FAULT_MARKERS = ("宿主故障", "被宿主停下", "有 Instance 被宿主停下")
+FAULT_MARKERS = ("宿主故障", "被宿主停下")
 MAX_RESUME = 3
+TIMEOUT = 1200  # 一次运行最多 20 分钟
 
 # 容器与镜像的装配：与 crates/host/tests/support 里的一致，实验用同样的限额。
 DIRECTORY = {
@@ -35,12 +37,18 @@ def load_task(name):
     task = json.loads((path / "task.json").read_text())
     task["name"] = name
     task["path"] = path
+    task.setdefault("set", "tune")
     return task
 
 
 def commit(repo):
     out = subprocess.run(["git", "-C", str(repo), "rev-parse", "--short", "HEAD"], capture_output=True, text=True)
     return out.stdout.strip() or "?"
+
+
+def dirty(repo, paths):
+    out = subprocess.run(["git", "-C", str(repo), "status", "--porcelain", "--"] + paths, capture_output=True, text=True)
+    return out.stdout.strip()
 
 
 def host_config(attempt, system, provider, cassette):
@@ -56,12 +64,15 @@ def host_config(attempt, system, provider, cassette):
 
 
 def run_app(args, log):
-    """跑一次 croon-app，返回 (退出码, 输出)。输出同时追加进日志。"""
-    result = subprocess.run([str(APP)] + args, capture_output=True, text=True, timeout=1800)
-    text = result.stdout + result.stderr
+    """跑一次 croon-app，返回 (退出码, 输出, 是否超时)。输出同时追加进日志。"""
+    try:
+        result = subprocess.run([str(APP)] + args, capture_output=True, text=True, timeout=TIMEOUT)
+        text, code, timed_out = result.stdout + result.stderr, result.returncode, False
+    except subprocess.TimeoutExpired as e:
+        text, code, timed_out = (e.stdout or b"").decode() if isinstance(e.stdout, bytes) else (e.stdout or ""), 124, True
     with open(log, "a") as f:
-        f.write(f"$ croon-app {' '.join(args[:1])}\n{text}\n")
-    return result.returncode, text
+        f.write(f"$ croon-app {args[0]}\n{text}\n")
+    return code, text, timed_out
 
 
 def is_host_fault(text):
@@ -69,9 +80,9 @@ def is_host_fault(text):
 
 
 def attempt_run(task, provider, attempt):
-    """一次尝试：run，遇宿主故障就 resume，最多 MAX_RESUME 次。返回 (进程输出, 宿主故障次数, 是否宿主故障收场)。"""
+    """一次尝试：run，遇宿主故障就 resume，最多 MAX_RESUME 次。返回 (退出码, 输出, 宿主故障次数, 是否超时)。"""
     attempt.mkdir(parents=True)
-    system = f"lab-{task['name']}-{attempt.name}"
+    system = f"lab-{attempt.parent.parent.name}-{task['name']}-{attempt.name}"
     cassette = attempt / "cassette.json"
     config = host_config(attempt, system, provider, cassette)
     repo = attempt / "repo"
@@ -83,131 +94,174 @@ def attempt_run(task, provider, attempt):
     tools.write_text(json.dumps({"tools": task.get("tools", [{"kind": "functions", "package": "files"}])}))
     out = attempt / "out"
     log = attempt / "run.log"
-    code, text = run_app(["run", "--config", str(config), "--repo", str(repo), "--out", str(out),
-                          "--tools", str(tools), task["task"]], log)
+    code, text, timed_out = run_app(["run", "--config", str(config), "--repo", str(repo), "--out", str(out),
+                                     "--tools", str(tools), task["task"]], log)
     faults = 0
-    while code != 0 and is_host_fault(text) and faults < MAX_RESUME:
+    while code != 0 and not timed_out and is_host_fault(text) and faults < MAX_RESUME:
         faults += 1
         if out.exists() and not any(out.iterdir()):
             out.rmdir()
-        code, text = run_app(["resume", "--config", str(config), "--out", str(out)], log)
-    return code, text, faults
+        code, text, timed_out = run_app(["resume", "--config", str(config), "--out", str(out)], log)
+    return code, text, faults, timed_out
 
 
-def parse_tape(cassette):
-    """从录像取出：模型调用数、token、每次 make 的尝试、各工具调用的序列。"""
+def digest(cassette):
+    """从录像整理这次尝试的经过。
+
+    W0 与造出来的主体各自的模型调用：W0 的请求工具表里有 make，主体的没有。W0 的调用序列取它最长的那条请求
+    （含整段历史）加上最后一条的回答。返回的结构写进 digest.json，检查器读它。
+    """
+    empty = {"model_calls": {"w0": 0, "made": 0}, "tokens": {"w0": {"input": 0, "output": 0}, "made": {"input": 0, "output": 0}},
+             "calls": [], "makes": [], "made_outputs": [], "final_text": "", "turns": 0}
     if not cassette.exists():
-        return {"model_calls": 0, "tokens": {"input": 0, "output": 0}, "makes": [], "calls": []}
+        return empty
     entries = json.loads(cassette.read_text())["entries"]
-    tokens = {"input": 0, "output": 0}
-    for e in entries:
-        usage = e["outcome"].get("value", {}).get("usage", {})
-        tokens["input"] += usage.get("input") or 0
-        tokens["output"] += usage.get("output") or 0
-    # 录像里 W0 的调用最多、最后一条请求的 messages 包含整段历史。取消息最长的 W0 请求。
-    w0 = [e for e in entries if "W0" in e["request"]["system"]]
-    last = max(w0, key=lambda e: len(e["request"]["messages"]))["request"]["messages"] if w0 else []
-    final = max(w0, key=lambda e: len(e["request"]["messages"]))["outcome"].get("value", {}) if w0 else {}
-    pending = {}
-    calls, makes = [], []
-    for m in last + ([{"role": "assistant", "calls": final.get("calls", []), "text": final.get("text", "")}] if final else []):
+    w0 = [e for e in entries if any(t["name"] == "make" for t in e["request"]["tools"])]
+    made = [e for e in entries if not any(t["name"] == "make" for t in e["request"]["tools"])]
+    out = json.loads(json.dumps(empty))
+    for key, group in (("w0", w0), ("made", made)):
+        out["model_calls"][key] = len(group)
+        for e in group:
+            usage = e["outcome"].get("value", {}).get("usage", {})
+            out["tokens"][key]["input"] += usage.get("input") or 0
+            out["tokens"][key]["output"] += usage.get("output") or 0
+    out["made_outputs"] = [e["outcome"]["value"]["text"] for e in made if "value" in e["outcome"]]
+    if not w0:
+        return out
+    longest = max(w0, key=lambda e: len(e["request"]["messages"]))
+    history = list(longest["request"]["messages"])
+    final = longest["outcome"].get("value", {})
+    history.append({"role": "assistant", "text": final.get("text", ""), "calls": final.get("calls", [])})
+    out["final_text"] = final.get("text", "") if not final.get("calls") else ""
+    out["turns"] = sum(1 for m in history if m["role"] == "assistant")
+    by_id = {}
+    for m in history:
         if m["role"] == "assistant":
             for c in m["calls"]:
-                pending[c["id"]] = c
-                calls.append({"name": c["name"], "input": c["input"]})
+                item = {"name": c["name"], "input": c["input"]}
+                by_id[c["id"]] = item
+                out["calls"].append(item)
         elif m["role"] == "tool":
             for r in m["results"]:
-                c = pending.get(r["id"])
-                if c and c["name"] == "make":
-                    err = r["output"] if r["is_error"] else None
-                    makes.append({"name": c["input"].get("name"), "source": c["input"].get("source", ""),
-                                  "ok": not r["is_error"],
-                                  "error": {"kind": err.get("error"), "message": err.get("message")} if isinstance(err, dict) else None})
-                    calls[-1:] = calls[-1:]
-                if c:
-                    for k in calls:
-                        if k["name"] == c["name"] and "result" not in k and k["input"] == c["input"]:
-                            k["result"] = {"is_error": r["is_error"], "output": r["output"]}
-                            break
-    return {"model_calls": len(entries), "tokens": tokens, "makes": makes, "calls": calls}
+                item = by_id.get(r["id"])
+                if item is None:
+                    continue
+                item["is_error"] = r["is_error"]
+                item["output"] = r["output"]
+                if item["name"] == "make":
+                    err = r["output"] if r["is_error"] and isinstance(r["output"], dict) else {}
+                    out["makes"].append({"name": item["input"].get("name"), "source": item["input"].get("source", ""),
+                                         "ok": not r["is_error"],
+                                         "error": {"kind": err.get("error"), "message": err.get("message")} if err else None,
+                                         "tool": r["output"].get("tool") if not r["is_error"] and isinstance(r["output"], dict) else None})
+    return out
 
 
-def stage_of(tape, passed, host_fault):
-    """失败发生在哪个阶段：看工具调用的序列。"""
-    if passed:
-        return ""
+def stage_of(d, verdict, host_fault, timed_out, turns_limit):
+    """失败阶段：按 Experiments.md 的表，取第一个符合的。检查器给了阶段就用它。"""
+    if timed_out:
+        return "timeout"
     if host_fault:
         return "host"
-    calls = tape["calls"]
-    if not any(c["name"] == "make" for c in calls):
-        return "look" if any(c["name"] == "look" for c in calls) else "none"
-    if tape["makes"] and not any(m["ok"] for m in tape["makes"]):
-        return "construct"
-    made = [m["name"] for m in tape["makes"] if m["ok"]]
-    ran = [c for c in calls if c["name"] in made]
-    if not ran:
-        return "run"
-    if any(c.get("result", {}).get("is_error") for c in ran):
-        return "run"
-    return "answer"
+    if verdict.get("passed"):
+        return ""
+    if verdict.get("stage"):
+        return verdict["stage"]
+    if d["turns"] >= turns_limit:
+        return "turns"
+    made = [m for m in d["makes"] if m["ok"]]
+    if not d["makes"] or not made:
+        return "construct" if d["makes"] else "no_make"
+    tools = {m["tool"] for m in made}
+    ran = [c for c in d["calls"] if c["name"] in tools]
+    if not ran or all(c.get("is_error") for c in ran):
+        return "invoke"
+    return "wrong"
 
 
-def check(task, attempt, tape):
-    """调用任务的检查器，返回判定；检查器自己出错记为 checker_fault。"""
+def check(task, attempt):
+    """调用任务的检查器，返回 (判定, 检查器是否出错)。"""
     script = task["path"] / "check.py"
     if not script.exists():
-        return {"passed": None, "reason": "没有检查器", "details": {}}, False
+        return {"passed": None, "reason": "没有检查器", "details": {}}, True
     try:
         result = subprocess.run([sys.executable, str(script), str(attempt)], capture_output=True, text=True, timeout=900)
-        verdict = json.loads(result.stdout.strip().splitlines()[-1])
-        return verdict, False
+        return json.loads(result.stdout.strip().splitlines()[-1]), False
     except Exception as e:  # 检查器出错不记为任务失败
         return {"passed": None, "reason": f"检查器故障：{e}", "details": {}}, True
 
 
-def record_of(task, provider_model, attempt, tape, code, text, faults, seconds):
-    host_fault = code != 0 and is_host_fault(text)
-    verdict, checker_broken = ({"passed": False, "reason": "宿主故障", "details": {}}, False)
-    if code == 0:
-        verdict, checker_broken = check(task, attempt, tape)
-    passed = bool(verdict.get("passed"))
-    if checker_broken:
-        outcome = "checker_fault"
-    elif host_fault:
-        outcome = "host_fault"
-    elif passed:
-        outcome = "passed"
+def judge(task, model, attempt, d, code, faults, timed_out, seconds):
+    host_fault = code != 0 and not timed_out and is_host_fault((attempt / "run.log").read_text() if (attempt / "run.log").exists() else "")
+    failed_run = code != 0
+    if failed_run:
+        verdict, broken = {"passed": False, "reason": "运行没有正常结束", "details": {}}, False
     else:
-        outcome = "failed"
+        verdict, broken = check(task, attempt)
+    direct = sum(1 for c in d["calls"] if c["name"] in ("write_file", "run"))
+    # 绕开：结果对，但 W0 没有靠主体：files 类里 W0 自己写了文件，且没有成功造出主体。
+    if not failed_run and not broken and verdict.get("passed") and task.get("category") == "files":
+        wrote = any(c["name"] == "write_file" for c in d["calls"])
+        if wrote and not any(m["ok"] for m in d["makes"]):
+            verdict = {**verdict, "passed": False, "stage": "bypass", "reason": "结果对，但 W0 自己改的文件，没有造主体"}
+    passed = bool(verdict.get("passed"))
+    outcome = "checker_fault" if broken and not failed_run else "host_fault" if (host_fault or timed_out) else "passed" if passed else "failed"
     return {
-        "task": task["name"], "model": provider_model, "commit": {"app": commit(ROOT), "croon": commit(ROOT.parent / "croon"), "lang0": commit(ROOT.parent / "croon-lang0")},
-        "outcome": outcome, "stage": stage_of(tape, passed, host_fault),
-        "model_calls": tape["model_calls"], "tokens": tape["tokens"],
-        "makes": [{k: v for k, v in m.items() if k != "source"} | {"source_bytes": len(m["source"])} for m in tape["makes"]],
-        "host_faults": faults, "seconds": round(seconds, 1),
-        "exit": code, "verdict": verdict,
+        "task": task["name"], "set": task["set"], "category": task.get("category"), "model": model,
+        "commit": {"app": commit(ROOT), "croon": commit(ROOT.parent / "croon"), "lang0": commit(ROOT.parent / "croon-lang0")},
+        "outcome": outcome, "stage": stage_of(d, verdict, host_fault, timed_out, 50) if outcome != "checker_fault" else "",
+        "model_calls": d["model_calls"], "tokens": d["tokens"],
+        "makes": [{k: v for k, v in m.items() if k != "source"} | {"source_bytes": len(m["source"])} for m in d["makes"]],
+        "w0_direct": direct, "host_faults": faults, "seconds": round(seconds, 1), "exit": code, "verdict": verdict,
     }
+
+
+def finish(task, model, attempt, code, faults, timed_out, seconds):
+    d = digest(attempt / "cassette.json")
+    (attempt / "digest.json").write_text(json.dumps(d, ensure_ascii=False, indent=1))
+    (attempt / "makes.json").write_text(json.dumps(d["makes"], ensure_ascii=False, indent=1))
+    rec = judge(task, model, attempt, d, code, faults, timed_out, seconds)
+    (attempt / "record.json").write_text(json.dumps(rec, ensure_ascii=False, indent=1))
+    return rec
+
+
+def line(name, n, rec):
+    mk = rec["makes"]
+    return (f"{name}/{n} {rec['outcome']:13} 阶段={rec['stage'] or '-':9} W0调用={rec['model_calls']['w0']:3} 主体调用={rec['model_calls']['made']:2} "
+            f"make={len(mk)}(败{sum(1 for m in mk if not m['ok'])}) W0写={rec['w0_direct']} 宿主故障={rec['host_faults']} {rec['seconds']}s  {rec['verdict'].get('reason', '')[:50]}")
+
+
+def one(args_):
+    task, provider, model, attempt = args_
+    started = time.time()
+    code, text, faults, timed_out = attempt_run(task, provider, attempt)
+    rec = finish(task, model, attempt, code, faults, timed_out, time.time() - started)
+    return task["name"], attempt.name, rec
 
 
 def cmd_run(args):
     provider = pathlib.Path(args.provider).resolve()
     model = json.loads(provider.read_text())["model"]
-    names = args.tasks.split(",") if args.tasks else sorted(p.name for p in TASKS.iterdir() if (p / "task.json").exists())
+    if args.allow_dirty is False:
+        d = dirty(ROOT, ["crates", "library", "home", "docs/Library"])
+        if d:
+            sys.exit(f"App 有未提交的改动，批要在干净的代码上跑（--allow-dirty 跳过）：\n{d}")
+    names = args.tasks.split(",") if args.tasks else sorted(p.name for p in TASKS.iterdir() if (p / "task.json").exists() and not p.name.startswith("_"))
+    jobs = []
     batch = RUNS / args.batch
     for name in names:
         task = load_task(name)
+        if not args.tasks and task["set"] != args.set:
+            continue
         for n in range(args.repeat):
             attempt = batch / name / f"{n + 1:02d}"
             if attempt.exists():
                 print(f"{name}/{n + 1:02d} 已有，跳过")
                 continue
-            started = time.time()
-            code, text, faults = attempt_run(task, provider, attempt)
-            tape = parse_tape(attempt / "cassette.json")
-            rec = record_of(task, model, attempt, tape, code, text, faults, time.time() - started)
-            (attempt / "record.json").write_text(json.dumps(rec, ensure_ascii=False, indent=1))
-            (attempt / "makes.json").write_text(json.dumps(tape["makes"], ensure_ascii=False, indent=1))
-            print(f"{name}/{n + 1:02d} {rec['outcome']:13} 阶段={rec['stage'] or '-':9} 调用={rec['model_calls']:3} make={len(rec['makes'])} 宿主故障={faults} {rec['seconds']}s  {rec['verdict'].get('reason', '')[:60]}")
+            jobs.append((task, provider, model, attempt))
+    with concurrent.futures.ThreadPoolExecutor(max_workers=args.jobs) as pool:
+        for name, n, rec in pool.map(one, jobs):
+            print(line(name, n, rec), flush=True)
 
 
 def cmd_check(args):
@@ -215,12 +269,11 @@ def cmd_check(args):
     for rec_path in sorted(batch.glob("*/*/record.json")):
         attempt = rec_path.parent
         task = load_task(attempt.parent.name)
-        tape = parse_tape(attempt / "cassette.json")
         old = json.loads(rec_path.read_text())
-        rec = record_of(task, old["model"], attempt, tape, old["exit"], "", old["host_faults"], old["seconds"])
+        rec = finish(task, old["model"], attempt, old["exit"], old["host_faults"], False, old["seconds"])
         rec["commit"] = old["commit"]
         rec_path.write_text(json.dumps(rec, ensure_ascii=False, indent=1))
-        print(f"{attempt.parent.name}/{attempt.name} {rec['outcome']:13} {rec['verdict'].get('reason', '')[:70]}")
+        print(line(attempt.parent.name, attempt.name, rec))
 
 
 def cmd_report(args):
@@ -229,20 +282,33 @@ def cmd_report(args):
     for rec_path in sorted(batch.glob("*/*/record.json")):
         by_task.setdefault(rec_path.parent.parent.name, []).append(json.loads(rec_path.read_text()))
     print(f"批 {args.batch}")
+    errors = {}
     for name, recs in by_task.items():
-        counts = {}
+        counts, stages = {}, {}
         for r in recs:
             counts[r["outcome"]] = counts.get(r["outcome"], 0) + 1
-        stages = {}
-        for r in recs:
             if r["stage"]:
                 stages[r["stage"]] = stages.get(r["stage"], 0) + 1
+            for m in r["makes"]:
+                if not m["ok"] and m["error"]:
+                    key = f"{m['error']['kind']}: {(m['error']['message'] or '')[:70]}"
+                    errors[key] = errors.get(key, 0) + 1
         makes = [len(r["makes"]) for r in recs]
-        calls = [r["model_calls"] for r in recs]
-        print(f"- {name}：{len(recs)} 次 {counts}；失败阶段 {stages or '无'}；make 平均 {sum(makes) / len(makes):.1f}；模型调用 {min(calls)}–{max(calls)}")
-    total_in = sum(r["tokens"]["input"] for rs in by_task.values() for r in rs)
-    total_out = sum(r["tokens"]["output"] for rs in by_task.values() for r in rs)
-    print(f"token 合计：输入 {total_in}，输出 {total_out}")
+        w0 = [r["model_calls"]["w0"] for r in recs]
+        bypass = sum(1 for r in recs if r["w0_direct"] and r["category"] == "files")
+        print(f"- {name}（{recs[0]['set']}，{recs[0]['category']}）：{len(recs)} 次 {counts}；失败阶段 {stages or '无'}；"
+              f"make 平均 {sum(makes) / len(makes):.1f}；W0 调用 {min(w0)}–{max(w0)}；W0 自己写文件或跑命令 {bypass} 次")
+    if errors:
+        print("make 的失败信息：")
+        for k, v in sorted(errors.items(), key=lambda kv: -kv[1]):
+            print(f"  {v:3}  {k}")
+    total = {"w0": {"input": 0, "output": 0}, "made": {"input": 0, "output": 0}}
+    for rs in by_task.values():
+        for r in rs:
+            for who in total:
+                for k in total[who]:
+                    total[who][k] += r["tokens"][who][k]
+    print(f"token：W0 输入 {total['w0']['input']} 输出 {total['w0']['output']}；主体 输入 {total['made']['input']} 输出 {total['made']['output']}")
 
 
 def main():
@@ -254,7 +320,10 @@ def main():
         if name == "run":
             p.add_argument("--provider", required=True)
             p.add_argument("--tasks")
+            p.add_argument("--set", default="tune", choices=["tune", "holdout"])
             p.add_argument("--repeat", type=int, default=1)
+            p.add_argument("--jobs", type=int, default=1)
+            p.add_argument("--allow-dirty", action="store_true")
     args = parser.parse_args()
     {"run": cmd_run, "check": cmd_check, "report": cmd_report}[args.cmd](args)
 

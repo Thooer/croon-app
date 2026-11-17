@@ -1,0 +1,11 @@
+{
+ "category": "files",
+ "set": "holdout",
+ "tools": [
+  {
+   "kind": "functions",
+   "package": "files"
+  }
+ ],
+ "task": "造一个 Agent，交办给它修好 util.py 里的 clamp：clamp(x, lo, hi) 应当把 x 限制在 [lo, hi] 里。不要自己改 util.py。"
+}

@@ -1,0 +1,11 @@
+{
+ "category": "model",
+ "set": "tune",
+ "tools": [
+  {
+   "kind": "functions",
+   "package": "files"
+  }
+ ],
+ "task": "造一个 Agent：main 只有一个参数 sentence（字符串），让模型把一句中文翻译成英文，只返回译文（字符串）。造好后用「今天天气很好」调用它，把译文原文告诉我。译文必须来自它，不要自己翻译。"
+}

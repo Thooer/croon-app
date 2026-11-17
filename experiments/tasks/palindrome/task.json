@@ -1,0 +1,11 @@
+{
+ "category": "compute",
+ "set": "holdout",
+ "tools": [
+  {
+   "kind": "functions",
+   "package": "files"
+  }
+ ],
+ "task": "造一个 Agent：main 只有一个参数 text（字符串），判断它是不是回文（布尔），只看字母与数字、不分大小写。造好后用它判断 \"A man, a plan, a canal: Panama\" 并告诉我结果。不要自己判断。"
+}

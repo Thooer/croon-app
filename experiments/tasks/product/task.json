@@ -1,0 +1,11 @@
+{
+ "category": "compute",
+ "set": "holdout",
+ "tools": [
+  {
+   "kind": "functions",
+   "package": "files"
+  }
+ ],
+ "task": "造一个 Agent：main 只有一个参数 numbers（整数列表），返回所有数的乘积（整数），空列表返回 1。造好后用它算 [2,3,4] 的结果告诉我。不要自己算。"
+}

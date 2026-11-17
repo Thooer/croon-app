@@ -1,0 +1,11 @@
+{
+ "category": "files",
+ "set": "tune",
+ "tools": [
+  {
+   "kind": "functions",
+   "package": "files"
+  }
+ ],
+ "task": "造一个 Agent，交办给它修好这个项目：stats.py 里的 mean 与 report.py 里的 label 都有错，目录里有 test_stats.py，运行 python3 -m unittest 应当全部通过。不要自己改文件。"
+}

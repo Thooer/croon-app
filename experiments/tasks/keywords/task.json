@@ -1,0 +1,11 @@
+{
+ "category": "model",
+ "set": "holdout",
+ "tools": [
+  {
+   "kind": "functions",
+   "package": "files"
+  }
+ ],
+ "task": "造一个 Agent：main 只有一个参数 text（字符串），让模型从一段文字里提取三个关键词，返回用逗号分隔的字符串。造好后用「蜜蜂通过舞蹈告诉同伴花蜜的方向和距离」调用它，把结果原文告诉我。结果必须来自它，不要自己提取。"
+}

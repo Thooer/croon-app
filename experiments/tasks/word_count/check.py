@@ -1,21 +1,24 @@
 import json, pathlib, sys
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[3]))
-from experiments.checking import made_sources, rerun, verdict
+from experiments.checking import made, rerun, reported, same, signature, uses_model, verdict, load
 
 attempt = pathlib.Path(sys.argv[1])
-sources = made_sources(attempt)
+sources = made(attempt)
 if not sources:
     verdict(False, "没有构造成功的主体")
     raise SystemExit
-cases = [("a A a", 1), ("x y z", 3), ("", 0), ("  Hello   hello  world ", 2), ("one", 1)]
 name, source = sources[-1]
-# 输入字段名由模型起，从它的 Interface 取不到时就试它 main 的第一个参数名。
-import re
-m = re.search(r"def main\(\s*(\w+)", source)
-field = m.group(1) if m else "text"
+if signature(source) != ['text']:
+    verdict(False, f"接口与任务写明的不符：参数是 {signature(source)}，要 ['text']", stage="interface", name=name)
+    raise SystemExit
+cases = [('a A a', 1), ('x y z', 3), ('', 0), ('  Hello   hello  world ', 2), ('one', 1), ('B b\tc\nC', 2)]
 bad = []
-for text_in, want in cases:
-    code, text, _ = rerun(attempt, source, {field: text_in})
-    if code != 0 or text.splitlines()[0].strip() != str(want):
-        bad.append({"input": text_in, "want": want, "got": text[:200]})
-verdict(not bad, "全部对" if not bad else f"{len(bad)}/{len(cases)} 个输入不对", name=name, bad=bad)
+for given, want in cases:
+    code, text, _ = rerun(attempt, source, {'text': given})
+    if code != 0 or not same(text, want):
+        bad.append({"input": given, "want": want, "got": text[:200]})
+if bad:
+    verdict(False, f"{len(bad)}/{len(cases)} 个输入不对", stage="wrong", name=name, bad=bad)
+    raise SystemExit
+missing = reported(attempt, ['4'])
+verdict(not missing, "全部对，W0 转述对" if not missing else f"主体对，W0 的转述里没有 {missing}", stage="report", name=name)

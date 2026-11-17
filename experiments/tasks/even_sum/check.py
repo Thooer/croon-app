@@ -1,18 +1,24 @@
 import json, pathlib, sys
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[3]))
-from experiments.checking import made_sources, rerun, verdict
+from experiments.checking import made, rerun, reported, same, signature, uses_model, verdict, load
 
 attempt = pathlib.Path(sys.argv[1])
-sources = made_sources(attempt)
+sources = made(attempt)
 if not sources:
     verdict(False, "没有构造成功的主体")
     raise SystemExit
-# 检验方自己的输入：含负数、零、空列表，写死答案过不了。
-cases = [([], 0), ([0], 0), ([-2, -3, 5, 8], 6), ([7, 9, 11], 0), ([100, 200, 3], 300)]
 name, source = sources[-1]
+if signature(source) != ['numbers']:
+    verdict(False, f"接口与任务写明的不符：参数是 {signature(source)}，要 ['numbers']", stage="interface", name=name)
+    raise SystemExit
+cases = [([], 0), ([0], 0), ([-2, -3, 5, 8], 6), ([7, 9, 11], 0), ([100, 200, 3], 300)]
 bad = []
-for numbers, want in cases:
-    code, text, _ = rerun(attempt, source, {"numbers": numbers})
-    if code != 0 or text.splitlines()[0].strip() != str(want):
-        bad.append({"input": numbers, "want": want, "got": text[:200]})
-verdict(not bad, "全部对" if not bad else f"{len(bad)}/{len(cases)} 个输入不对", name=name, bad=bad)
+for given, want in cases:
+    code, text, _ = rerun(attempt, source, {'numbers': given})
+    if code != 0 or not same(text, want):
+        bad.append({"input": given, "want": want, "got": text[:200]})
+if bad:
+    verdict(False, f"{len(bad)}/{len(cases)} 个输入不对", stage="wrong", name=name, bad=bad)
+    raise SystemExit
+missing = reported(attempt, ['16'])
+verdict(not missing, "全部对，W0 转述对" if not missing else f"主体对，W0 的转述里没有 {missing}", stage="report", name=name)

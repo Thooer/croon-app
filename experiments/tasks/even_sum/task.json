@@ -1,10 +1,11 @@
 {
  "category": "compute",
+ "set": "tune",
  "tools": [
   {
    "kind": "functions",
    "package": "files"
   }
  ],
- "task": "造一个 Agent：输入一个整数列表，返回其中偶数之和。造好后用它算 [1,2,3,4,10] 的结果告诉我。不要自己算。"
+ "task": "造一个 Agent：main 只有一个参数 numbers（整数列表），返回其中偶数之和（整数）。造好后用它算 [1,2,3,4,10] 的结果告诉我。不要自己算。"
 }

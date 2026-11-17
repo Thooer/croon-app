@@ -1,0 +1,11 @@
+{
+ "category": "compute",
+ "set": "tune",
+ "tools": [
+  {
+   "kind": "functions",
+   "package": "files"
+  }
+ ],
+ "task": "造一个 Agent：main 只有一个参数 text（字符串），返回出现次数最多的单词（字符串），按空白分词，不分大小写，返回小写；次数相同时返回字典序最小的。造好后用它处理 \"the cat and the hat and the bat\" 并告诉我结果。不要自己算。"
+}

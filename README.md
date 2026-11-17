@@ -112,6 +112,7 @@ target/debug/croon-app resume --session 会话名 --out /tmp/demo/out2
 **6. 不要模型也能试**：`exec` 直接运行一份 Lang0 源码，不经模型，所以**不需要第 3 步的配置，也不需要密钥**；刚装好、想先确认它能工作，就从这里开始。它也是一次独立的运行，有自己的会话，不会撞上别的：
 
 ```
+mkdir -p /tmp/demo
 printf 'def main(n: int) -> int:\n    return n + 1\n' > /tmp/demo/m.py
 target/debug/croon-app exec --source /tmp/demo/m.py --input '{"n":41}' --out /tmp/demo/o
 ```

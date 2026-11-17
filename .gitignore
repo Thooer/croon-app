@@ -4,6 +4,7 @@ target/
 /library/directory.py
 /library/infer.py
 /config/agent-provider*.json
+!/config/agent-provider.example.json
 /library/tools.py
 experiments/runs/
 experiments/__pycache__/

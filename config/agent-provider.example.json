@@ -1,0 +1,8 @@
+{
+  "protocol": "openai_chat_completions",
+  "base_url": "https://api.openai.com/v1",
+  "api_key": "把你的密钥写在这里，文件不要提交：.gitignore 已经排除了 config/agent-provider*.json",
+  "model": "模型名",
+  "max_output_tokens": 4096,
+  "timeout_seconds": 180
+}

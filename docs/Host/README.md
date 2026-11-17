@@ -13,10 +13,10 @@
 一次运行按顺序做五件事：
 
 1. 打开 Kernel：Language 只装 `lang0@1`；宿主 Port 按恢复身份装上模型（`model.generate`）与文件执行（`directory.exec`）。凭据只在宿主配置与提供者里，不进 Definition、输入或 Journal。
-2. 导入：Library 的目录 Bundle、预置 Definition 与用户仓库。用户仓库经 Directory 的导入整份成为目录 Bundle，.git 与被忽略的文件都在内：W0 的合并要从候选里的仓库取提交。只想交出一部分的，先准备好那个目录。
+2. 导入：家目录（Library 的包、生成模块与索引、默认工具清单，见 ../Library/Packages.md）、W0 的 Definition 与用户仓库。用户仓库经 Directory 的导入整份成为目录 Bundle，.git 与被忽略的文件都在内：W0 的合并要从候选里的仓库取提交。只想交出一部分的，先准备好那个目录。
 3. 创建 root entry，按「root entry」的 Interface 与 binding 接线。
-4. 作为客户端驱动 root entry：构造要运行的 Definition，实例化它，按它的 Required port 附带 root entry 手里的同名 Port（W0 要 engine、exec、infer 与 Kernel 的 pack、construct、instantiate），向它的 Notify 登记并附带接到 done 的 back，按 via 取结束结果。
-5. 结果快照由根物化到一个新的空目录。不覆盖用户的仓库，写回见「待定」。
+4. 作为客户端驱动 root entry：构造 W0，实例化它，输入是任务、仓库与家目录；按它的 Required port 附带 root entry 手里的同名 Port（W0 要 engine、exec、infer 与 Kernel 的 pack、construct、instantiate），向它的 Notify 登记并附带接到 done 的 back，按 via 取结束结果。别的 Definition 都是 W0 在运行中从家目录载入的，宿主不预先构造。
+5. 仓库的结果快照由根物化到一个新的空目录，不带家目录，不覆盖用户的仓库，写回见「待定」。家目录第一版不留存。
 
 ## 配置
 
@@ -52,7 +52,7 @@ Required port 在诞生时写定，运行中再接新东西是 Kernel 的待定�
 
 ## 构造的推导
 
-`definition.infer` 从一份 Definition 草稿的 body 推出 Interface：纯计算，没有世界效果，通道是可丢弃的。它不建立构造事实：construct 会把推出的 Interface 与 Definition 里写的按规范文本比对，推错也过不了构造，Kernel 不把宿主的推导当成事实。
+`definition.infer` 是宿主的推导 Port，纯计算，没有世界效果，通道是可丢弃的。它有两种输入：Definition 草稿的 body，推出 Interface；模块目录，推出各模块的公开面索引，见 ../Library/Packages.md「包」。后者要 croon-lang0 补一个公开 API，是上游的缺口。下面写前一种。它不建立构造事实：construct 会把推出的 Interface 与 Definition 里写的按规范文本比对，推错也过不了构造，Kernel 不把宿主的推导当成事实。
 
 形状是 `definition.infer`。
 
@@ -79,7 +79,7 @@ Required port 在诞生时写定，运行中再接新东西是 Kernel 的待定�
 
 | 档 | 用户提供 | 宿主补齐 |
 |---|---|---|
-| Application | 任务、仓库、模型配置 | 预置的 W0 与 S |
+| Application | 任务、仓库、模型配置 | 预置的 W0 与家目录 |
 | Library | 自己用 Lang0 写、import Library 模块的 Definition | Library 的目录 Bundle |
 | Kernel | 自己的 Definition 或 Charter | 只有 Language 与宿主 Port |
 
@@ -91,4 +91,4 @@ Required port 在诞生时写定，运行中再接新东西是 Kernel 的待定�
 - 经 socket 连上的 root entry 与持续对话，见 Plan.md「以后的方向」的「持续对话」。场景：W0 持续对话。
 - 多个模型槽位。场景：异质检验。
 
-参考：../Model/README.md（宿主适配、录制与回放）；../Directory/README.md（导入、物化）；../Library/Presets.md（W0）。
+参考：../Model/README.md（宿主适配、录制与回放）；../Directory/README.md（导入、物化）；../Library/Presets.md（W0）；../Library/Packages.md（家目录）。

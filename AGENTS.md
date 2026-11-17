@@ -15,7 +15,8 @@ croon-app 是建立在 croon 与 croon-lang0 之上的完整应用：模型适�
 | docs/Directory/README.md | Directory 的文件执行服务 |
 | docs/Model/README.md | 模型服务 Port 形状 |
 | docs/Host/README.md | 宿主装配：root entry、binding、客户端 |
-| docs/Library/README.md | Library 总览：原则、地图与生成模块 |
+| docs/Library/README.md | Library 总览：原则与地图 |
+| docs/Library/Packages.md | 包、家目录与管理器 |
 | docs/Library/Runtime.md | 运行环境、工具调用、交办 |
 | docs/Library/Organization.md | 组织与历史 |
 | docs/Library/Presets.md | 预置 Charter 与 Application |

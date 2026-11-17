@@ -8,10 +8,10 @@
 - `crates/model/`：`model.generate` 的宿主适配。
 - `crates/host/`：根在系统外的装配、`definition.infer` 宿主 Port、Library 生成模块与端到端测试。
 - `docs/Host/`：宿主装配。
-- `library/`：ReAct、文件工具、工作区、交办、运行中构造 Agent 与预置 Application 使用的 Lang0 模块。
+- `library/`：ReAct、文件工具、工作区、交办与预置 Application 使用的 Lang0 包。
 - `docs/Directory/`：目录与文件执行。
 - `docs/Model/`：模型服务 Port。
-- `docs/Library/`：运行、组织、预置 Charter 与 Application。
+- `docs/Library/`：包与家目录、运行、组织、预置 Charter 与 Application。
 - `docs/Research/`：应用侧的研究线索。
 
 ## 状态

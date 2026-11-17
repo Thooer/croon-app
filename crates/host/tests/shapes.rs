@@ -101,6 +101,8 @@ fn different_shapes_run_and_a_wiring_mistake_comes_back_readable() {
         })),
         fault: None,
         tools: None,
+        session: None,
+        quiet: true,
     };
     let out = temp.root.join("out");
     let done = host::run(&settings, assembly, &repo, "试几种主体", &out).unwrap();

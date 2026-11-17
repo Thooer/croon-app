@@ -52,17 +52,65 @@ diff -ru 你的仓库 结果目录
 - Library 目录的留存就是采用它：运行中装的包、造的主体不采用就随这次运行结束。一条规则，没有特例。
 - 几次运行同时结束时，各自按自己的导入基准三方合并写回，冲突照常报出。
 
-## 配置
+## 配置与会话
 
-一次运行装配的东西写在一份配置文件里，由启动入口用 `--config` 显式指定；宿主不从环境变量或当前目录找配置。路径都是绝对路径。
+**两样东西，分开放**：
 
-形状是 `host.config`。
+- **机器的环境**：镜像、docker 的路径、各项资源上限、模型服务在哪。每台机器一份，几乎不变，都有默认值。写在一份配置文件里，形状是 `host.config`。
+- **一次运行的身份**：名字、Kernel 目录、文件执行的 state 目录、录像。每开一个新任务都不同。这些不再写在配置里，由**会话**给出。
 
-**一次运行的身份与机器的环境是两样东西，现在混在这份文件里**：`system`、`kernel`、`state` 与录像路径是这一次运行的，开一个新任务就要换；镜像与各项资源上限是这台机器的，几乎不变。所以现在每开一个新任务都得复制整份配置改那几项。分开的做法见 Plan.md 的取舍表。
+### 会话
 
-恢复身份是 `<系统名>/model`、`<系统名>/directory` 与 `<系统名>/infer`，写进 root entry 的 binding。文件执行的容器名与 state 锁由恢复身份派生，所以一台机器上的两个系统要用不同的名字；同一个名字必须始终配同一个 Kernel 目录与 state 目录。
+一个会话就是一次运行，名字就是它的身份。会话目录是 `$XDG_STATE_HOME/croon/sessions/<名字>/`（没有设置时是 `~/.local/state/croon/sessions/<名字>/`），里面有这次运行的 Kernel 目录、state 目录与录像：
 
-**录像**：新的一次运行里，录像文件不能已经存在，不在旧录像上覆盖。同一次运行被中断之后 `resume`，录制器读进已有的条目，接着往同一盘追加，见 ../Model/README.md「录制与回放」。要重新录一次，换一个新的系统名、Kernel 目录与录像。回放沿用模型的恢复身份：换录像不换系统名。
+```
+sessions/<名字>/
+  kernel/         记录库与内容库
+  state/          文件执行的私有 state
+  cassette.json   模型往来的录像
+```
+
+宿主由名字派生出恢复身份（`<名字>/model`、`<名字>/directory`、`<名字>/infer`），所以不同会话的容器名与锁天然不同。
+
+- `run` 不给名字时，自动取 `<日期时间>-<任务的短哈希>`，**打印出来**：`resume` 要用它。给了 `--session 名字` 就用它；名字已有会话时 `run` 报错，提示 `resume`。
+- `resume` 要名字。不给就报错，并列出最近的几个会话与它们是否已结束。这就是之前缺的「列出未完成的运行」。
+- 会话名只允许字母、数字、`-`、`_`、`.`，不以 `.` 开头：它要出现在容器名与路径里。
+
+### 配置文件
+
+查找顺序：`--config` 指定的文件；没有就 `$XDG_CONFIG_HOME/croon/config.json`（默认 `~/.config/croon/config.json`）；再没有就全用默认值。**不从环境变量或当前目录找**。路径都是绝对路径。
+
+最小的配置只写模型服务：
+
+```
+{"model": {"provider": "/绝对路径/agent-provider.json"}}
+```
+
+其余字段与默认值：
+
+| 字段 | 默认 | 说明 |
+|---|---|---|
+| `directory.image` | `croon-work:2` | 任务镜像 |
+| `directory.collector_image` | `python:3.12-slim` | 采集产物的可信镜像 |
+| `directory.docker` | `PATH` 里的 `docker` | |
+| `directory.python` | `PATH` 里的 `python3` | |
+| `directory.platform` | `linux/amd64` | |
+| `directory.cpus` | `1` | |
+| `directory.memory_bytes` | 512 MiB | |
+| `directory.work_bytes`、`temporary_bytes` | 64 MiB | `/work` 与 `/tmp` 的上限 |
+| `directory.pids` | 128 | |
+| `directory.output_bytes` | 64 KiB | 每次命令的 stdout、stderr 各保留多少 |
+| `directory.nodes` | 20000 | 目录里最多多少个节点 |
+| `directory.archive_bytes` | 128 MiB | |
+| `directory.cleanup_timeout_seconds` | 60 | |
+
+**旧的写法仍然接受**：配置里写了 `system`、`kernel`、`directory.state`、`model.record` 时，按它们办，不再用会话目录。测试与实验脚本靠这个：它们要自己控制每个目录。此时同一个名字必须始终配同一个 Kernel 目录与 state 目录；两个系统要用不同的名字，因为容器名与 state 锁由恢复身份派生。
+
+**录像**：新的一次运行里，录像文件不能已经存在，不在旧录像上覆盖。同一次运行被中断之后 `resume`，录制器读进已有的条目，接着往同一盘追加，见 ../Model/README.md「录制与回放」。回放沿用模型的恢复身份：换录像不换名字。
+
+### 进度
+
+`run`、`resume`、`exec` 在标准错误上每步打印一行：模型第几次调用、用了多少 token、W0 调用了哪个工具、文件执行花了多久。`--quiet` 关掉。标准输出只有最后的总结与结果路径，所以脚本里 `> 文件` 拿到的还是干净的结果。进度来自 Journal：宿主在等结束的间隙读新增的记录，不为它在 Library 里加东西。
 
 ## 运行参数
 

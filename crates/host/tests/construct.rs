@@ -95,6 +95,8 @@ fn a_wrong_source_comes_back_as_a_diagnostic_and_a_fixed_one_runs() {
         model: Some(scripted),
         fault: None,
         tools: None,
+        session: None,
+        quiet: true,
     };
     let out1 = temp.root.join("out1");
     let first = host::run(&settings, assembly, &repo, task, &out1).unwrap();

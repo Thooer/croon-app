@@ -94,6 +94,8 @@ fn a_host_fault_ends_the_run_and_a_rerun_reopens_and_finishes() {
             })),
             fault: None,
             tools: None,
+            session: None,
+            quiet: true,
         },
         &repo,
         task,
@@ -116,6 +118,8 @@ fn a_host_fault_ends_the_run_and_a_rerun_reopens_and_finishes() {
             })),
             fault: None,
             tools: None,
+            session: None,
+            quiet: true,
         },
         &out2,
     )
@@ -141,6 +145,8 @@ fn a_use_failure_ends_w0_with_a_failure_that_the_root_receives() {
             })),
             fault: None,
             tools: None,
+            session: None,
+            quiet: true,
         },
         &repo,
         "修好 a.py",
@@ -168,6 +174,8 @@ fn run_refuses_a_directory_that_already_has_a_run_and_resume_needs_one() {
         })),
         fault: None,
         tools: None,
+        session: None,
+        quiet: true,
     };
 
     let none = host::resume(&settings, scripted(&system), &temp.root.join("out0"))

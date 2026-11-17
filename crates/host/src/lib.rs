@@ -16,6 +16,7 @@
 mod blocks;
 pub mod infer;
 pub mod library;
+mod progress;
 
 use croon_port::store::{Budgets, Content};
 use croon_port::{Bundle, CheckError, HostError, Port, Read};
@@ -78,17 +79,74 @@ const BUDGETS: Budgets = Budgets {
 #[derive(Clone)]
 pub enum ModelSource {
     Provider(PathBuf),
-    Record { provider: PathBuf, record: PathBuf },
+    /// `record` 为空时录在会话目录里。
+    Record {
+        provider: PathBuf,
+        record: Option<PathBuf>,
+    },
     Replay(PathBuf),
 }
 
-/// 校验过的宿主配置。
+/// 校验过的宿主配置。一次运行的身份（system、kernel、state）可以没有，由会话补上。
 #[derive(Clone)]
 pub struct Settings {
-    pub system: String,
-    pub kernel: PathBuf,
+    pub system: Option<String>,
+    pub kernel: Option<PathBuf>,
     pub model: ModelSource,
-    pub directory: directory::Config,
+    pub directory: DirectorySettings,
+}
+
+/// 文件执行的装配：没写的字段用默认值，见 docs/Host/README.md「配置与会话」。`state` 为空时在会话目录里。
+#[derive(Clone)]
+pub struct DirectorySettings {
+    pub state: Option<PathBuf>,
+    pub docker: PathBuf,
+    pub python: PathBuf,
+    pub image: String,
+    pub collector_image: String,
+    pub platform: String,
+    pub cpus: String,
+    pub memory_bytes: u64,
+    pub work_bytes: usize,
+    pub temporary_bytes: usize,
+    pub pids: u32,
+    pub output_bytes: usize,
+    pub nodes: usize,
+    pub archive_bytes: usize,
+    pub cleanup_timeout: Duration,
+}
+
+impl DirectorySettings {
+    /// 交给 Directory 的装配：恢复身份与 state 目录来自会话。
+    fn config(&self, session: &Session) -> directory::Config {
+        directory::Config {
+            identity: format!("{}/directory", session.name),
+            state: session.state.clone(),
+            docker: self.docker.clone(),
+            python: self.python.clone(),
+            image: self.image.clone(),
+            collector_image: self.collector_image.clone(),
+            platform: self.platform.clone(),
+            cpus: self.cpus.clone(),
+            memory_bytes: self.memory_bytes,
+            work_bytes: self.work_bytes,
+            temporary_bytes: self.temporary_bytes,
+            pids: self.pids,
+            output_bytes: self.output_bytes,
+            nodes: self.nodes,
+            archive_bytes: self.archive_bytes,
+            cleanup_timeout: self.cleanup_timeout,
+        }
+    }
+}
+
+/// 一次运行落在磁盘上的位置与身份：会话给出，或配置里写死。
+#[derive(Clone)]
+pub struct Session {
+    pub name: String,
+    pub kernel: PathBuf,
+    pub state: PathBuf,
+    pub cassette: PathBuf,
 }
 
 fn text(v: &Json, key: &str) -> Result<String> {
@@ -114,65 +172,163 @@ fn number<T: TryFrom<u64>>(v: &Json, key: &str) -> Result<T> {
         .ok_or_else(|| Error(format!("宿主配置的 {key} 超出范围")))
 }
 
+/// 写了就按它解析（写错是错），没写就用默认值。
+fn or<T>(v: &Json, key: &str, default: T, parse: impl Fn(&Json, &str) -> Result<T>) -> Result<T> {
+    if v.get(key).is_some() {
+        parse(v, key)
+    } else {
+        Ok(default)
+    }
+}
+
+/// PATH 里一个可执行文件的绝对路径。
+fn on_path(name: &str) -> Option<PathBuf> {
+    std::env::var_os("PATH")?
+        .to_string_lossy()
+        .split(':')
+        .map(|dir| Path::new(dir).join(name))
+        .find(|p| p.is_file())
+}
+
+/// 用户的状态目录：`$XDG_STATE_HOME/croon`，没有就 `~/.local/state/croon`。
+pub fn state_home() -> Result<PathBuf> {
+    if let Some(dir) = std::env::var_os("XDG_STATE_HOME").filter(|d| Path::new(d).is_absolute()) {
+        return Ok(Path::new(&dir).join("croon"));
+    }
+    let home = std::env::var_os("HOME")
+        .ok_or_else(|| Error("找不到家目录：设 HOME 或 XDG_STATE_HOME".into()))?;
+    Ok(Path::new(&home).join(".local/state/croon"))
+}
+
+/// 默认的配置文件：`$XDG_CONFIG_HOME/croon/config.json`，没有就 `~/.config/croon/config.json`；文件不存在就是没有。
+pub fn default_config() -> Option<PathBuf> {
+    let base = match std::env::var_os("XDG_CONFIG_HOME").filter(|d| Path::new(d).is_absolute()) {
+        Some(dir) => PathBuf::from(dir),
+        None => Path::new(&std::env::var_os("HOME")?).join(".config"),
+    };
+    let path = base.join("croon/config.json");
+    path.is_file().then_some(path)
+}
+
+/// 会话名要出现在容器名与路径里：只允许字母、数字、`-`、`_`、`.`，不以 `.` 开头。
+pub fn valid_session_name(name: &str) -> bool {
+    !name.is_empty()
+        && !name.starts_with('.')
+        && name
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || matches!(c, '-' | '_' | '.'))
+}
+
 impl Settings {
     pub fn load(path: &Path) -> Result<Self> {
         let value: Json = serde_json::from_slice(&std::fs::read(path)?)?;
-        croon_eval::schema::validate(&schema("host.config"), &value)
+        Self::from_json(&value)
+    }
+
+    pub fn from_json(value: &Json) -> Result<Self> {
+        croon_eval::schema::validate(&schema("host.config"), value)
             .map_err(|e| Error(format!("host.config: {e:?}")))?;
-        let system = text(&value, "system")?;
         let m = &value["model"];
         let model = if m.get("replay").is_some() {
             ModelSource::Replay(absolute(m, "replay")?)
-        } else if m.get("record").is_some() {
+        } else if let Some(record) = m.get("record") {
             ModelSource::Record {
                 provider: absolute(m, "provider")?,
-                record: absolute(m, "record")?,
+                // true：录在会话目录里；写了路径：录到那里。
+                record: if record == &json!(true) { None } else { Some(absolute(m, "record")?) },
             }
         } else {
             ModelSource::Provider(absolute(m, "provider")?)
         };
-        let d = &value["directory"];
-        let directory = directory::Config {
-            identity: format!("{system}/directory"),
-            state: absolute(d, "state")?,
-            docker: absolute(d, "docker")?,
-            python: absolute(d, "python")?,
-            image: text(d, "image")?,
-            collector_image: text(d, "collector_image")?,
-            platform: text(d, "platform")?,
-            cpus: text(d, "cpus")?,
-            memory_bytes: number(d, "memory_bytes")?,
-            work_bytes: number(d, "work_bytes")?,
-            temporary_bytes: number(d, "temporary_bytes")?,
-            pids: number(d, "pids")?,
-            output_bytes: number(d, "output_bytes")?,
-            nodes: number(d, "nodes")?,
-            archive_bytes: number(d, "archive_bytes")?,
-            cleanup_timeout: Duration::from_secs(number(d, "cleanup_timeout_seconds")?),
+        let none = json!({});
+        let d = value.get("directory").unwrap_or(&none);
+        let docker = match d.get("docker") {
+            Some(_) => absolute(d, "docker")?,
+            None => on_path("docker").ok_or_else(|| {
+                Error("PATH 里没有 docker：装好它，或在配置的 directory.docker 里写路径".into())
+            })?,
+        };
+        let python = match d.get("python") {
+            Some(_) => absolute(d, "python")?,
+            None => on_path("python3").ok_or_else(|| {
+                Error("PATH 里没有 python3：装好它，或在配置的 directory.python 里写路径".into())
+            })?,
+        };
+        let directory = DirectorySettings {
+            state: d.get("state").map(|_| absolute(d, "state")).transpose()?,
+            docker,
+            python,
+            image: or(d, "image", "croon-work:2".into(), text)?,
+            collector_image: or(d, "collector_image", "python:3.12-slim".into(), text)?,
+            platform: or(d, "platform", "linux/amd64".into(), text)?,
+            cpus: or(d, "cpus", "1".into(), text)?,
+            memory_bytes: or(d, "memory_bytes", 512 << 20, number)?,
+            work_bytes: or(d, "work_bytes", 64 << 20, number)?,
+            temporary_bytes: or(d, "temporary_bytes", 64 << 20, number)?,
+            pids: or(d, "pids", 128, number)?,
+            output_bytes: or(d, "output_bytes", 64 << 10, number)?,
+            nodes: or(d, "nodes", 20_000, number)?,
+            archive_bytes: or(d, "archive_bytes", 128 << 20, number)?,
+            cleanup_timeout: Duration::from_secs(or(d, "cleanup_timeout_seconds", 60, number)?),
         };
         Ok(Self {
-            kernel: absolute(&value, "kernel")?,
-            system,
+            system: value.get("system").map(|_| text(value, "system")).transpose()?,
+            kernel: value.get("kernel").map(|_| absolute(value, "kernel")).transpose()?,
             model,
             directory,
         })
     }
 
-    /// 配置里的模型来源；`resuming` 时录制是接着已有的录像追加。
-    fn model_port(&self, resuming: bool) -> Result<Rc<dyn Port>> {
-        let identity = format!("{}/model", self.system);
+    /// 这次运行的身份与目录。配置里写死了的按配置；其余由会话名派生，落在 `sessions` 下。
+    /// `name` 为空时用配置里的 `system`；两者都没有就报错。
+    pub fn session(&self, name: Option<&str>, sessions: &Path) -> Result<Session> {
+        let name = match (name, &self.system) {
+            (Some(n), _) => n.to_owned(),
+            (None, Some(s)) => s.clone(),
+            (None, None) => {
+                return Err(Error(
+                    "没有会话名：run 会自己取一个，resume 要 --session 名字".into(),
+                ));
+            }
+        };
+        if !valid_session_name(&name) {
+            return Err(Error(format!(
+                "会话名 {name:?} 不合法：只允许字母、数字、-、_、.，且不以 . 开头"
+            )));
+        }
+        let dir = sessions.join(&name);
+        Ok(Session {
+            kernel: self.kernel.clone().unwrap_or_else(|| dir.join("kernel")),
+            state: self
+                .directory
+                .state
+                .clone()
+                .unwrap_or_else(|| dir.join("state")),
+            cassette: match &self.model {
+                ModelSource::Record {
+                    record: Some(r), ..
+                } => r.clone(),
+                _ => dir.join("cassette.json"),
+            },
+            name,
+        })
+    }
+
+    /// 配置里的模型来源；写了 `record` 才录，`resuming` 时接着已有的录像追加。录像路径不写时放在会话目录里。
+    fn model_port(&self, session: &Session, resuming: bool) -> Result<Rc<dyn Port>> {
+        let identity = format!("{}/model", session.name);
         Ok(match &self.model {
             ModelSource::Provider(provider) => Rc::new(model::OpenAiCompatible::from_config_file(
                 provider, identity,
             )?),
-            ModelSource::Record { provider, record } => {
+            ModelSource::Record { provider, .. } => {
                 let inner = Rc::new(model::OpenAiCompatible::from_config_file(
                     provider, identity,
                 )?);
-                if resuming && record.exists() {
-                    Rc::new(model::Recorder::resume(inner, record.clone())?)
+                if resuming && session.cassette.exists() {
+                    Rc::new(model::Recorder::resume(inner, session.cassette.clone())?)
                 } else {
-                    Rc::new(model::Recorder::new(inner, record.clone())?)
+                    Rc::new(model::Recorder::new(inner, session.cassette.clone())?)
                 }
             }
             ModelSource::Replay(cassette) => Rc::new(model::Replayer::open(cassette, identity)?),
@@ -196,6 +352,10 @@ pub struct Assembly {
     pub fault: Option<FaultHook>,
     /// 代替默认的工具清单：实验要测制造时不载入预置的子代理。要过 [`library::check_tools`]。
     pub tools: Option<Json>,
+    /// 一次运行落在磁盘上的位置与身份；不给就用配置里写死的 `system`、`kernel`、`state`，它们都要有。
+    pub session: Option<Session>,
+    /// 不在标准错误上打印进度。
+    pub quiet: bool,
 }
 
 /// 一次运行的结果：W0 的总结与它最终采用的目录 Bundle。
@@ -265,6 +425,7 @@ fn sorted(mut ids: Vec<String>) -> Vec<String> {
 struct Client<'a> {
     kernel: &'a mut Kernel,
     conn: Conn,
+    progress: progress::Progress,
 }
 
 impl Client<'_> {
@@ -274,6 +435,13 @@ impl Client<'_> {
                 return Ok(result);
             }
             let progress = self.kernel.run()?;
+            self.progress.report(
+                self.kernel
+                    .index()
+                    .journals
+                    .iter()
+                    .map(|(id, journal)| (id.as_str(), journal.records.as_slice())),
+            );
             // 被宿主停下的 Instance 要修好宿主、重开之后才会再走：这次运行跑不完，不再等。
             let stopped = self.kernel.stopped();
             if !stopped.is_empty() {
@@ -377,9 +545,16 @@ fn drive(
     out: &Path,
 ) -> Result<Finished> {
     let resuming = start.is_none();
+    // 一次运行的身份：运行参数给了就用，没有就看配置里写死的 system；都没有是调用方的错。
+    let session = match assembly.session.clone() {
+        Some(session) => session,
+        None => settings.session(None, &state_home()?.join("sessions"))?,
+    };
+    std::fs::create_dir_all(&session.kernel)?;
+    std::fs::create_dir_all(&session.state)?;
     let model = match assembly.model {
         Some(model) => {
-            let identity = format!("{}/model", settings.system);
+            let identity = format!("{}/model", session.name);
             if model.id() != identity {
                 return Err(Error(format!(
                     "运行参数里的模型恢复身份是 {}，要是 {identity}",
@@ -388,12 +563,12 @@ fn drive(
             }
             model
         }
-        None => settings.model_port(resuming)?,
+        None => settings.model_port(&session, resuming)?,
     };
-    let exec: Rc<dyn Port> = Rc::new(directory::Docker::new(settings.directory.clone())?);
-    let inferrer: Rc<dyn Port> = Rc::new(infer::Infer::new(format!("{}/infer", settings.system)));
+    let exec: Rc<dyn Port> = Rc::new(directory::Docker::new(settings.directory.config(&session))?);
+    let inferrer: Rc<dyn Port> = Rc::new(infer::Infer::new(format!("{}/infer", session.name)));
     let mut kernel = Kernel::open(
-        &settings.kernel,
+        &session.kernel,
         KernelConfig {
             languages: vec![Box::new(lang0::Lang0) as Box<dyn Language>],
             budgets: BUDGETS,
@@ -407,7 +582,10 @@ fn drive(
     let (root, job) = match (existing, start) {
         (Some(_), Some(_)) => {
             return Err(Error(
-                "这个 Kernel 目录里已经有一次运行：续做用 resume，要重新做就换一个 Kernel 目录".into(),
+                format!(
+                    "会话 {} 里已经有一次运行：续做用 resume --session {}，要做新的就换一个会话名（不给 --session 会自己取一个）",
+                    session.name, session.name
+                ),
             ));
         }
         (None, None) => return Err(Error("这个 Kernel 目录里没有开始过的运行（可能在创建 root entry 之前就中断了）：用 run 重新开始".into())),
@@ -503,6 +681,7 @@ fn drive(
     let mut client = Client {
         kernel: &mut kernel,
         conn,
+        progress: progress::Progress::new(assembly.quiet),
     };
     client.send(
         "construct-w0",

@@ -67,6 +67,8 @@ fn run_with(plan: Vec<Json>) -> (Result<host::Finished, host::Error>, usize) {
         })),
         fault: None,
         tools: None,
+        session: None,
+        quiet: true,
     };
     let done = host::run(&settings, assembly, &repo, "说一句话", &temp.root.join("out"));
     let n = *asked.borrow();

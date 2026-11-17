@@ -94,14 +94,14 @@ def attempt_run(task, provider, attempt):
     tools.write_text(json.dumps({"tools": task.get("tools", [{"kind": "functions", "package": "files"}])}))
     out = attempt / "out"
     log = attempt / "run.log"
-    code, text, timed_out = run_app(["run", "--config", str(config), "--repo", str(repo), "--out", str(out),
+    code, text, timed_out = run_app(["run", "--quiet", "--config", str(config), "--repo", str(repo), "--out", str(out),
                                      "--tools", str(tools), task["task"]], log)
     faults = 0
     while code != 0 and not timed_out and is_host_fault(text) and faults < MAX_RESUME:
         faults += 1
         if out.exists() and not any(out.iterdir()):
             out.rmdir()
-        code, text, timed_out = run_app(["resume", "--config", str(config), "--out", str(out)], log)
+        code, text, timed_out = run_app(["resume", "--quiet", "--config", str(config), "--out", str(out)], log)
     return code, text, faults, timed_out
 
 

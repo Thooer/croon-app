@@ -113,6 +113,8 @@ fn kills_during_an_exec(make: impl Fn(String) -> Rc<dyn Port>, task: &str, expec
         model: Some(recorder),
         fault: None,
         tools: None,
+        session: None,
+        quiet: true,
     };
     let baseline = host::run(
         &settings,

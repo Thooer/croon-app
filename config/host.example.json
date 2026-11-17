@@ -1,25 +1,6 @@
 {
-  "system": "demo",
-  "kernel": "/绝对路径/demo/kernel",
   "model": {
     "provider": "/绝对路径/croon-app/config/agent-provider.json",
-    "record": "/绝对路径/demo/cassette.json"
-  },
-  "directory": {
-    "state": "/绝对路径/demo/state",
-    "docker": "/usr/bin/docker",
-    "python": "/usr/bin/python3",
-    "image": "croon-work:2",
-    "collector_image": "python:3.12-slim",
-    "platform": "linux/amd64",
-    "cpus": "1",
-    "memory_bytes": 536870912,
-    "work_bytes": 67108864,
-    "temporary_bytes": 67108864,
-    "pids": 128,
-    "output_bytes": 65536,
-    "nodes": 20000,
-    "archive_bytes": 134217728,
-    "cleanup_timeout_seconds": 60
+    "record": true
   }
 }

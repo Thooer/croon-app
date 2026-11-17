@@ -1,20 +1,21 @@
 {
-  "description": "宿主配置：一个系统的名字、Kernel 目录、模型来源与文件执行的装配",
+  "description": "宿主配置：机器的环境（模型服务、镜像、资源上限）；一次运行的身份（system、kernel、state、录像）由会话给出，也可以在这里写死",
   "type": "object",
   "properties": {
-    "system": {"type": "string", "description": "系统名；恢复身份由它派生"},
-    "kernel": {"type": "string", "description": "Kernel 目录：记录库与内容库"},
+    "system": {"type": "string", "description": "系统名；恢复身份由它派生。不写时用会话名"},
+    "kernel": {"type": "string", "description": "Kernel 目录：记录库与内容库。不写时在会话目录里"},
     "model": {
       "anyOf": [
         {"type": "object", "properties": {"provider": {"type": "string", "description": "符合 model.provider 的配置文件"}}, "required": ["provider"], "additionalProperties": false},
-        {"type": "object", "properties": {"provider": {"type": "string"}, "record": {"type": "string", "description": "录像写到这里，不能已经存在"}}, "required": ["provider", "record"], "additionalProperties": false},
+        {"type": "object", "properties": {"provider": {"type": "string"}, "record": {"anyOf": [{"type": "string", "description": "录像写到这个路径，新的一次运行里它不能已经存在"}, {"enum": [true], "description": "录在会话目录里的 cassette.json"}]}}, "required": ["provider", "record"], "additionalProperties": false},
         {"type": "object", "properties": {"replay": {"type": "string", "description": "要回放的录像"}}, "required": ["replay"], "additionalProperties": false}
       ]
     },
     "directory": {
       "type": "object",
+      "description": "文件执行的装配，全部有默认值，见 docs/Host/README.md「配置与会话」",
       "properties": {
-        "state": {"type": "string", "description": "提供者的私有 state 目录"},
+        "state": {"type": "string", "description": "提供者的私有 state 目录。不写时在会话目录里"},
         "docker": {"type": "string"},
         "python": {"type": "string"},
         "image": {"type": "string", "description": "任务镜像"},
@@ -30,10 +31,10 @@
         "archive_bytes": {"type": "integer"},
         "cleanup_timeout_seconds": {"type": "integer"}
       },
-      "required": ["state", "docker", "python", "image", "collector_image", "platform", "cpus", "memory_bytes", "work_bytes", "temporary_bytes", "pids", "output_bytes", "nodes", "archive_bytes", "cleanup_timeout_seconds"],
+      "required": [],
       "additionalProperties": false
     }
   },
-  "required": ["system", "kernel", "model", "directory"],
+  "required": ["model"],
   "additionalProperties": false
 }

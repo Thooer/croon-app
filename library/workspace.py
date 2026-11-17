@@ -3,7 +3,7 @@
 主人是调用这些函数的 Instance：工作区是 body 携带的 dict，每次移动都是一次执行结果加一次采用，重放即恢复。
 规则见 croon-app:docs/Library/Runtime.md「工作区」。
 """
-from typing import NotRequired, TypedDict
+from typing import Any, NotRequired, TypedDict
 import croon
 from library.directory import Exec
 
@@ -61,6 +61,34 @@ def advance(ws: Workspace, exec: Exec, argv: list[str], stdin: str = "",
     r = execute(exec, ws["current"], argv, stdin, mounts, timeout)
     ws["current"] = r["snapshot"]
     return r
+
+
+def tree(directory: str) -> dict[str, Any]:
+    """一份目录 Bundle 的 Tree：名字到 {"file": ID, "x": 可执行}、{"dir": ID} 或 {"link": 目标}。纯读取，不起 exec。"""
+    return croon.read_json(croon.read_json(directory)["content"])
+
+
+def entry(ws: Workspace, path: str) -> dict[str, Any]:
+    """当前位置里一个路径的条目；空路径是根目录。"""
+    node = {"dir": ws["current"]}
+    for part in path.split("/"):
+        if part == "" or part == ".":
+            continue
+        if "dir" not in node:
+            raise OSError(f"{path} 的上级不是目录")
+        entries = tree(node["dir"])
+        if part not in entries:
+            raise OSError(f"没有 {path}")
+        node = entries[part]
+    return node
+
+
+def read_text_at(ws: Workspace, path: str) -> str:
+    """读当前位置里一个文件的文本，不起 exec。"""
+    node = entry(ws, path)
+    if "file" not in node:
+        raise OSError(f"{path} 不是文件")
+    return croon.read_text(croon.read_json(node["file"])["content"])
 
 
 def fork(ws: Workspace, name: str) -> str:

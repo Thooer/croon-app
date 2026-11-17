@@ -95,7 +95,7 @@
       "$bundle": {
         "language": "lang0@1",
         "interface": {
-          "description": "改仓库里的代码，必要时交办给 worker。",
+          "description": "改仓库里的代码，必要时交办给 Agent。",
           "provides": {
             "$block": "host.root#/interface/provides"
           },
@@ -114,7 +114,7 @@
                   "type": "string"
                 },
                 "worker": {
-                  "description": "交办时实例化的 Definition 的 ID。",
+                  "description": "预置的 s 的 Definition ID。",
                   "type": "string"
                 }
               },
@@ -389,7 +389,7 @@
       ]
     },
     "sha256:lw0send0": {
-      "system": "你是 W0。能自己改，也能把一处修改交办出去；交回的先看 diff，满意再并入。",
+      "system": "你是 W0。能自己改，也能把一件事交办给 Agent：预置的 s 改代码，也可以自己写 Lang0 源码造新的；交回的先看 diff，满意再并入。",
       "messages": [
         {
           "role": "user",
@@ -459,99 +459,46 @@
         },
         {
           "name": "delegate",
-          "description": "交办一处修改给子 Agent，等它结束，交回总结与 diff；不并入。",
+          "description": "交办一件事给一个 Agent，等它结束，交回它的结束值。\n\nagent 是它的名字：预置的 s 在工作区里改代码，input 写 {\"task\": 要做的事}。自己造的，给 source 或 path，\n造好记在这个名字下，名字重了会加序号，用返回的 agent；之后只给名字就行。它要 engine 与 exec 之外的\nPort 时，交办的一方给不了。input 里有 snapshot 的，工作区的当前位置由这里填，不用写；结束值带\nsnapshot 的，一并交回 name 与 diff，满意了再用 merge 并入。",
           "input": {
             "type": "object",
             "properties": {
-              "name": {
+              "agent": {
                 "type": "string",
-                "description": "给这次交办起的名字，并入时用。"
+                "description": "Agent 的名字。"
               },
-              "task": {
+              "input": {
+                "description": "它的输入，按它 main 的参数写，不含 snapshot。"
+              },
+              "source": {
                 "type": "string",
-                "description": "交给子 Agent 的任务。"
+                "description": "Lang0 源码，须有顶层 def main，参数与返回值都标类型；可以 import library 里的模块。"
+              },
+              "path": {
+                "type": "string",
+                "description": "工作区里的 .py 文件，或含 main.py 的目录，作为它的源码。"
               }
             },
             "required": [
-              "name",
-              "task"
+              "agent",
+              "input"
             ],
             "additionalProperties": false
           }
         },
         {
           "name": "merge",
-          "description": "把一次交办交回的产物 Bundle 采用或合并进自己的状态。",
+          "description": "把一次交办交回的产物并入自己的工作区：没动过就直接采用，动过就按目录三方合并，冲突时不动。",
           "input": {
             "type": "object",
             "properties": {
               "name": {
                 "type": "string",
-                "description": "交办时返回的名字。"
+                "description": "交办时返回的 name。"
               }
             },
             "required": [
               "name"
-            ],
-            "additionalProperties": false
-          }
-        },
-        {
-          "name": "construct_agent",
-          "description": "构造一个 Agent，之后用 delegate_to 按名字交办。",
-          "input": {
-            "type": "object",
-            "properties": {
-              "name": {
-                "type": "string",
-                "description": "给它起的名字。"
-              },
-              "source": {
-                "type": "string",
-                "description": "Lang0 源码，须有顶层 def main，参数与返回值都标类型；可以 import library 里的模块。"
-              }
-            },
-            "required": [
-              "name",
-              "source"
-            ],
-            "additionalProperties": false
-          }
-        },
-        {
-          "name": "describe_agent",
-          "description": "看一个 Agent 要什么输入、需要哪些 Port。",
-          "input": {
-            "type": "object",
-            "properties": {
-              "name": {
-                "type": "string",
-                "description": "造出来的 Agent 的名字。"
-              }
-            },
-            "required": [
-              "name"
-            ],
-            "additionalProperties": false
-          }
-        },
-        {
-          "name": "delegate_to",
-          "description": "把一件事交办给造出来的 Agent，等它结束，交回它的结束值与 diff；不并入。\n\n输入按它 Interface 的 in 写，先用 describe_agent 看清。工作区的当前位置由这里填：它的 in 有\nsnapshot 字段就填上，并用它作依赖。结束值要带 summary 与 snapshot。",
-          "input": {
-            "type": "object",
-            "properties": {
-              "name": {
-                "type": "string",
-                "description": "造出来的 Agent 的名字。"
-              },
-              "value": {
-                "description": "它的输入，按 Interface 的 in 写，不含 Bundle ID。"
-              }
-            },
-            "required": [
-              "name",
-              "value"
             ],
             "additionalProperties": false
           }
@@ -590,7 +537,7 @@
       "timeout": 60
     },
     "sha256:lw0send5": {
-      "system": "你是 W0。能自己改，也能把一处修改交办出去；交回的先看 diff，满意再并入。",
+      "system": "你是 W0。能自己改，也能把一件事交办给 Agent：预置的 s 改代码，也可以自己写 Lang0 源码造新的；交回的先看 diff，满意再并入。",
       "messages": [
         {
           "role": "user",
@@ -605,8 +552,10 @@
               "id": "c1",
               "name": "delegate",
               "input": {
-                "name": "fix",
-                "task": "修好 a.py"
+                "agent": "s",
+                "input": {
+                  "task": "修好 a.py"
+                }
               }
             }
           ]
@@ -618,8 +567,11 @@
               "id": "c1",
               "name": "delegate",
               "output": {
-                "name": "fix",
-                "summary": "改好了 a.py",
+                "agent": "s",
+                "name": "s",
+                "result": {
+                  "summary": "改好了 a.py"
+                },
                 "diff": " a.py | 2 +-\n 1 file changed, 1 insertion(+), 1 deletion(-)\n"
               },
               "is_error": false
@@ -690,99 +642,46 @@
         },
         {
           "name": "delegate",
-          "description": "交办一处修改给子 Agent，等它结束，交回总结与 diff；不并入。",
+          "description": "交办一件事给一个 Agent，等它结束，交回它的结束值。\n\nagent 是它的名字：预置的 s 在工作区里改代码，input 写 {\"task\": 要做的事}。自己造的，给 source 或 path，\n造好记在这个名字下，名字重了会加序号，用返回的 agent；之后只给名字就行。它要 engine 与 exec 之外的\nPort 时，交办的一方给不了。input 里有 snapshot 的，工作区的当前位置由这里填，不用写；结束值带\nsnapshot 的，一并交回 name 与 diff，满意了再用 merge 并入。",
           "input": {
             "type": "object",
             "properties": {
-              "name": {
+              "agent": {
                 "type": "string",
-                "description": "给这次交办起的名字，并入时用。"
+                "description": "Agent 的名字。"
               },
-              "task": {
+              "input": {
+                "description": "它的输入，按它 main 的参数写，不含 snapshot。"
+              },
+              "source": {
                 "type": "string",
-                "description": "交给子 Agent 的任务。"
+                "description": "Lang0 源码，须有顶层 def main，参数与返回值都标类型；可以 import library 里的模块。"
+              },
+              "path": {
+                "type": "string",
+                "description": "工作区里的 .py 文件，或含 main.py 的目录，作为它的源码。"
               }
             },
             "required": [
-              "name",
-              "task"
+              "agent",
+              "input"
             ],
             "additionalProperties": false
           }
         },
         {
           "name": "merge",
-          "description": "把一次交办交回的产物 Bundle 采用或合并进自己的状态。",
+          "description": "把一次交办交回的产物并入自己的工作区：没动过就直接采用，动过就按目录三方合并，冲突时不动。",
           "input": {
             "type": "object",
             "properties": {
               "name": {
                 "type": "string",
-                "description": "交办时返回的名字。"
+                "description": "交办时返回的 name。"
               }
             },
             "required": [
               "name"
-            ],
-            "additionalProperties": false
-          }
-        },
-        {
-          "name": "construct_agent",
-          "description": "构造一个 Agent，之后用 delegate_to 按名字交办。",
-          "input": {
-            "type": "object",
-            "properties": {
-              "name": {
-                "type": "string",
-                "description": "给它起的名字。"
-              },
-              "source": {
-                "type": "string",
-                "description": "Lang0 源码，须有顶层 def main，参数与返回值都标类型；可以 import library 里的模块。"
-              }
-            },
-            "required": [
-              "name",
-              "source"
-            ],
-            "additionalProperties": false
-          }
-        },
-        {
-          "name": "describe_agent",
-          "description": "看一个 Agent 要什么输入、需要哪些 Port。",
-          "input": {
-            "type": "object",
-            "properties": {
-              "name": {
-                "type": "string",
-                "description": "造出来的 Agent 的名字。"
-              }
-            },
-            "required": [
-              "name"
-            ],
-            "additionalProperties": false
-          }
-        },
-        {
-          "name": "delegate_to",
-          "description": "把一件事交办给造出来的 Agent，等它结束，交回它的结束值与 diff；不并入。\n\n输入按它 Interface 的 in 写，先用 describe_agent 看清。工作区的当前位置由这里填：它的 in 有\nsnapshot 字段就填上，并用它作依赖。结束值要带 summary 与 snapshot。",
-          "input": {
-            "type": "object",
-            "properties": {
-              "name": {
-                "type": "string",
-                "description": "造出来的 Agent 的名字。"
-              },
-              "value": {
-                "description": "它的输入，按 Interface 的 in 写，不含 Bundle ID。"
-              }
-            },
-            "required": [
-              "name",
-              "value"
             ],
             "additionalProperties": false
           }
@@ -790,7 +689,7 @@
       ]
     },
     "sha256:lw0send6": {
-      "system": "你是 W0。能自己改，也能把一处修改交办出去；交回的先看 diff，满意再并入。",
+      "system": "你是 W0。能自己改，也能把一件事交办给 Agent：预置的 s 改代码，也可以自己写 Lang0 源码造新的；交回的先看 diff，满意再并入。",
       "messages": [
         {
           "role": "user",
@@ -805,8 +704,10 @@
               "id": "c1",
               "name": "delegate",
               "input": {
-                "name": "fix",
-                "task": "修好 a.py"
+                "agent": "s",
+                "input": {
+                  "task": "修好 a.py"
+                }
               }
             }
           ]
@@ -818,8 +719,11 @@
               "id": "c1",
               "name": "delegate",
               "output": {
-                "name": "fix",
-                "summary": "改好了 a.py",
+                "agent": "s",
+                "name": "s",
+                "result": {
+                  "summary": "改好了 a.py"
+                },
                 "diff": " a.py | 2 +-\n 1 file changed, 1 insertion(+), 1 deletion(-)\n"
               },
               "is_error": false
@@ -835,7 +739,7 @@
               "id": "c2",
               "name": "merge",
               "input": {
-                "name": "fix"
+                "name": "s"
               }
             }
           ]
@@ -846,7 +750,7 @@
             {
               "id": "c2",
               "name": "merge",
-              "output": "已并入 fix",
+              "output": "已并入 s",
               "is_error": false
             }
           ]
@@ -915,99 +819,46 @@
         },
         {
           "name": "delegate",
-          "description": "交办一处修改给子 Agent，等它结束，交回总结与 diff；不并入。",
+          "description": "交办一件事给一个 Agent，等它结束，交回它的结束值。\n\nagent 是它的名字：预置的 s 在工作区里改代码，input 写 {\"task\": 要做的事}。自己造的，给 source 或 path，\n造好记在这个名字下，名字重了会加序号，用返回的 agent；之后只给名字就行。它要 engine 与 exec 之外的\nPort 时，交办的一方给不了。input 里有 snapshot 的，工作区的当前位置由这里填，不用写；结束值带\nsnapshot 的，一并交回 name 与 diff，满意了再用 merge 并入。",
           "input": {
             "type": "object",
             "properties": {
-              "name": {
+              "agent": {
                 "type": "string",
-                "description": "给这次交办起的名字，并入时用。"
+                "description": "Agent 的名字。"
               },
-              "task": {
+              "input": {
+                "description": "它的输入，按它 main 的参数写，不含 snapshot。"
+              },
+              "source": {
                 "type": "string",
-                "description": "交给子 Agent 的任务。"
+                "description": "Lang0 源码，须有顶层 def main，参数与返回值都标类型；可以 import library 里的模块。"
+              },
+              "path": {
+                "type": "string",
+                "description": "工作区里的 .py 文件，或含 main.py 的目录，作为它的源码。"
               }
             },
             "required": [
-              "name",
-              "task"
+              "agent",
+              "input"
             ],
             "additionalProperties": false
           }
         },
         {
           "name": "merge",
-          "description": "把一次交办交回的产物 Bundle 采用或合并进自己的状态。",
+          "description": "把一次交办交回的产物并入自己的工作区：没动过就直接采用，动过就按目录三方合并，冲突时不动。",
           "input": {
             "type": "object",
             "properties": {
               "name": {
                 "type": "string",
-                "description": "交办时返回的名字。"
+                "description": "交办时返回的 name。"
               }
             },
             "required": [
               "name"
-            ],
-            "additionalProperties": false
-          }
-        },
-        {
-          "name": "construct_agent",
-          "description": "构造一个 Agent，之后用 delegate_to 按名字交办。",
-          "input": {
-            "type": "object",
-            "properties": {
-              "name": {
-                "type": "string",
-                "description": "给它起的名字。"
-              },
-              "source": {
-                "type": "string",
-                "description": "Lang0 源码，须有顶层 def main，参数与返回值都标类型；可以 import library 里的模块。"
-              }
-            },
-            "required": [
-              "name",
-              "source"
-            ],
-            "additionalProperties": false
-          }
-        },
-        {
-          "name": "describe_agent",
-          "description": "看一个 Agent 要什么输入、需要哪些 Port。",
-          "input": {
-            "type": "object",
-            "properties": {
-              "name": {
-                "type": "string",
-                "description": "造出来的 Agent 的名字。"
-              }
-            },
-            "required": [
-              "name"
-            ],
-            "additionalProperties": false
-          }
-        },
-        {
-          "name": "delegate_to",
-          "description": "把一件事交办给造出来的 Agent，等它结束，交回它的结束值与 diff；不并入。\n\n输入按它 Interface 的 in 写，先用 describe_agent 看清。工作区的当前位置由这里填：它的 in 有\nsnapshot 字段就填上，并用它作依赖。结束值要带 summary 与 snapshot。",
-          "input": {
-            "type": "object",
-            "properties": {
-              "name": {
-                "type": "string",
-                "description": "造出来的 Agent 的名字。"
-              },
-              "value": {
-                "description": "它的输入，按 Interface 的 in 写，不含 Bundle ID。"
-              }
-            },
-            "required": [
-              "name",
-              "value"
             ],
             "additionalProperties": false
           }
@@ -1442,8 +1293,10 @@
                       "id": "c1",
                       "name": "delegate",
                       "input": {
-                        "name": "fix",
-                        "task": "修好 a.py"
+                        "agent": "s",
+                        "input": {
+                          "task": "修好 a.py"
+                        }
                       }
                     }
                   ],
@@ -1687,7 +1540,7 @@
                       "id": "c2",
                       "name": "merge",
                       "input": {
-                        "name": "fix"
+                        "name": "s"
                       }
                     }
                   ],

@@ -35,7 +35,7 @@ croon-app 拥有模型适配、Directory 与 Docker 文件执行、Library 与 A
 - **工作区**：私有工作区收拢快照、派生与采用；并入按目录三方合并，不看提交状态，不在 /work 里生成提交，结果确定，见 Library/Runtime.md「工作区」。
 - **恢复**：每个提交点前后停下，重跑结果与记录序列相同（`recovery`）；exec 在途时 SIGKILL，旧 attempt 退役、新 attempt 重做（`kill`）；宿主故障时客户端带原因退出，修好后重跑重开接着走（`failure`）。
 - **场景**：Delegate 场景归本仓库，root 用 host.root，预期由 CPython 独立求出并逐条核对，见 Library/Scenarios/Delegate.md。
-- **运行中构造与交办**：W0 经 `definition.infer`、pack、construct 构造新的 Cognition Definition，实例化它、经 Notify 收取结果，并审阅、采用文件产物（`construct`、`agent`）。已有脚本化模型与真 Docker 的端到端测试，跨系统回放结果一致。目前只验证了改文件的主体：接线按名字只认 engine、exec；交办工具不看目标收不收目录，总把工作区快照交给它，并要求结束值带 summary、snapshot；预置的 S 走另一个交办工具。推导的设计见 Host/README.md「构造的推导」。
+- **运行中构造与交办**：W0 的 `delegate` 工具收一份源码、工作区里的一个路径，或一个已有的名字；经 `definition.infer`、pack、construct 构造，实例化，经 Notify 收取结果。接线按目标声明的名字，从交办一方愿意交出的（W0 现在是 engine、exec）里取，是否恰好覆盖由 Kernel 检查；工作区只在目标的 in 或结束值里有 `snapshot` 时才介入，纯计算的主体不拿工作区。纯计算、只用模型、改文件三种主体与两种接线错误由 `construct`、`shapes`、`agent` 验收，预置的 s 走同一条路径（`delegation`、Delegate 场景）。还没有名字空间、家目录与载入：预置的 s 仍由根构造、经 `worker` 输入传给 W0，工具表是固定的。推导的设计见 Host/README.md「构造的推导」。
 
 **尚未落地**：没有上手路径，README 不写怎样建任务镜像、写 host.config、跑 `croon-app run`，`config/` 下也没有模板；需要真 Docker 的测试都标了 ignore，没有统一的跑法与前提说明，其中 `smoke` 会调用真模型。root entry 只在进程内，没有 socket 与持续对话；结果只写进新目录，写回用户仓库仍待定。
 
@@ -47,7 +47,7 @@ croon-app 拥有模型适配、Directory 与 Docker 文件执行、Library 与 A
 
 近期按下面四步推进，前一步的证据决定后一步的范围。第 1 步是「制造闭环」Cognition 版的机制验收，第 2 步是第一次测量之前必须有的基线，第 3、4 步是使用验收。其余工作按「以后的方向」里的条件启动。设计见 Library/Packages.md、Library/Runtime.md「名字空间」「工具」「交办」与 Library/Organization.md「做法怎样变」；下面只写判据。
 
-1. **W0 的最小形状与通用交办**：W0 是用户的手，自带的只有管理器；改代码的子代理 S 与文件工具成为 Library 里的包，由默认清单载入；交办不依赖 S 的形状。
+1. **W0 的最小形状与通用交办**：W0 是用户的手，自带的只有管理器；改代码的子代理 S 与文件工具成为 Library 里的包，由默认清单载入；交办不依赖 S 的形状。已做：通用运行、构造并入交办、工作区分层，见「现在」；没做：名字空间、家目录、清单与载入、`worker` 去掉，以及制造路径的逐提交点恢复。
    - 运行与工作区分层：通用运行按目标的 Interface 给输入、按声明的名字从名字空间附带 Port、经 Notify 收回结束值；只有目标收 `snapshot` 才交付快照，结束值带 `snapshot` 才 diff、等待并入。不收目录的主体既不拿到工作区，也不多起一次 exec。
    - 接线只按声明的名字取，是否恰好覆盖、规格是否相同由 Kernel 检查，Library 不另写一份。敏感能力要不要显式点名，见 Library/Runtime.md 待定，第一版不做。
    - 构造并入实例化：实例化收源码、路径或包，构造失败就是实例化失败。名字空间取代 `agents` 表与 `describe_agent`。

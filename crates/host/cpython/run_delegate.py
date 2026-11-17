@@ -47,6 +47,19 @@ def block(name):
     return json.loads(out)
 
 
+# 场景的预期：S 的 Definition 在里面，W0 交办前要读它的 Interface。
+expected = block("library.scenario.delegate")
+values = {**block(SHARED)["values"], **expected["values"]}
+
+
+def contents_of(bundle_id, content_id):
+    """一份 Bundle 的描述与它的 content：croon.read_json 读两层。"""
+    spec = values[bundle_id]["$bundle"]
+    dependencies = values[bundle_id]["dependencies"]
+    return {bundle_id: {"value": {"content": content_id, "dependencies": dependencies}},
+            content_id: {"value": {"language": spec["language"], "interface": spec["interface"], "body": spec["body"]}}}
+
+
 def ok(value, attach=None, derived=None, dependencies=[]):
     return {"outcome": {"ok": True, "value": value, "dependencies": dependencies}, "attach": attach or {}, "derived": derived or {}, "accepted": True}
 
@@ -70,7 +83,7 @@ SCRIPTS = {
            "1": done_exec(snapshot="sha256:lrepo2"),
            "2": llm("改好了 a.py", [])},
           {"task": "修好 a.py", "snapshot": "sha256:lrepo"}, {"engine": "port", "exec": "port"}, {}),
-    "w0": ({"0": llm("", [{"id": "c1", "name": "delegate", "input": {"name": "fix", "task": "修好 a.py"}}]),
+    "w0": ({"0": llm("", [{"id": "c1", "name": "delegate", "input": {"agent": "s", "input": {"task": "修好 a.py"}}}]),
             "1": ok(None, attach={"look": {"handle": "h-slook", "spec": "sha256:pslook"},
                                   "notify": {"handle": "h-snotify", "spec": "sha256:psnotify"},
                                   "correct": {"handle": "h-scorrect", "spec": "sha256:pscorrect"}},
@@ -78,7 +91,7 @@ SCRIPTS = {
             "2": ok(None, derived={"to": {"handle": "h-sdone", "revoker": rev(7)}}),
             "3": {"arrival": {"port": "done", "sender": "i-s", "via": "h-sdone", "delivery": {"value": {"ok": True, "value": S_OUT, "dependencies": ["sha256:lrepo2"]}, "dependencies": ["sha256:lrepo2"]}, "attach": {}}},
             "4": done_exec(" a.py | 2 +-\n 1 file changed, 1 insertion(+), 1 deletion(-)\n"),
-            "5": llm("", [{"id": "c2", "name": "merge", "input": {"name": "fix"}}]),
+            "5": llm("", [{"id": "c2", "name": "merge", "input": {"name": "s"}}]),
             "6": llm("已修好 a.py", [])},
            {"task": "修好 a.py", "worker": "sha256:ls", "snapshot": "sha256:lrepo"},
            {"engine": "port", "exec": "port", "instantiate": "port", "pack": "port", "construct": "port", "infer": "port", "back": "port"}, {"done": "inbox"}),
@@ -88,7 +101,7 @@ out = {}
 for name, (results, inp, refs, inboxes) in SCRIPTS.items():
     source = (work / "library" / f"{name}.py").read_text()
     iface = croon.interface(source, loader)
-    croon.DRIVER = croon.Driver(results, birth={"definition": {"body": {"modules": "sha256:lrepo"}}, "seat": None, "roster": None})
+    croon.DRIVER = croon.Driver(results, contents=contents_of("sha256:ls", "sha256:lscontent"), birth={"definition": {"body": {"modules": "sha256:lrepo"}}, "seat": None, "roster": None})
     mod = importlib.import_module(f"library.{name}")
     args = dict(inp)
     for k in refs:
@@ -103,10 +116,6 @@ for name, (results, inp, refs, inboxes) in SCRIPTS.items():
     out[name] = {"interface": iface, "atoms": croon.DRIVER.atoms, "end": end}
 
 # ---- 与场景预期核对 ----
-
-expected = block("library.scenario.delegate")
-values = {**block(SHARED)["values"], **expected["values"]}
-
 
 def resolve(v):
     """值的占位符换成它的内容；`$block` 只会指向本场景的 values。"""

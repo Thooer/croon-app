@@ -1,5 +1,4 @@
-//! 造出来能交办的端到端：W0 构造一个 Agent，按它的 Interface 实例化、等结束、审过 diff 再并入。
-//! 目标要的 Port 不在交办一方手里的报错，这一条单独在 W0 之外验，见 `run_agent` 的实现。
+//! 造出来能交办的端到端：W0 在一次 delegate 里造一个 Agent，按它的 Interface 实例化、等结束，审过 diff 再并入。
 //! 参考：docs/Library/Runtime.md「工具」；docs/Plan.md（制造闭环）。
 
 mod support;
@@ -43,17 +42,12 @@ fn w0(step: usize) -> Json {
     match step {
         0 => llm(
             "",
-            json!([{"id": "c1", "name": "construct_agent",
-                    "input": {"name": "writer", "source": WRITER}}]),
+            json!([{"id": "c1", "name": "delegate",
+                    "input": {"agent": "writer", "source": WRITER, "input": {"task": "修好 a.py"}}}]),
         ),
         1 => llm(
             "",
-            json!([{"id": "c2", "name": "delegate_to",
-                    "input": {"name": "writer", "value": {"task": "修好 a.py"}}}]),
-        ),
-        2 => llm(
-            "",
-            json!([{"id": "c3", "name": "merge", "input": {"name": "writer"}}]),
+            json!([{"id": "c2", "name": "merge", "input": {"name": "writer"}}]),
         ),
         _ => llm("已造好 writer 并修好 a.py", json!([])),
     }

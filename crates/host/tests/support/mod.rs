@@ -136,11 +136,14 @@ impl Scripted {
         let w0 = request["system"].as_str().unwrap().contains("W0");
         let mut plan = Vec::new();
         if w0 {
-            plan.push(("delegate", json!({"name": "fix", "task": "修好 a.py"})));
+            plan.push((
+                "delegate",
+                json!({"agent": "s", "input": {"task": "修好 a.py"}}),
+            ));
             if self.three_way {
                 plan.push(("write_file", json!({"path": "o.txt", "content": "ours\n"})));
             }
-            plan.push(("merge", json!({"name": "fix"})));
+            plan.push(("merge", json!({"name": "s"})));
         } else {
             // S 只写文件、不提交：并入不看提交状态。
             plan.push(("write_file", json!({"path": "a.py", "content": "fixed\n"})));

@@ -105,6 +105,31 @@ def attempt_run(task, provider, attempt):
     return code, text, faults, timed_out
 
 
+def built_sources(kernel):
+    """Journal 里 W0 实际交给 definition.infer 的源码，按先后：造出来的主体的真实源码，不论源码是写在 make 的参数里，
+    还是 make(path=…) 从工作区读来的。键是 infer 请求的值里 body.source。"""
+    import sqlite3
+    db = pathlib.Path(kernel) / "journal.db"
+    if not db.exists():
+        return []
+    values = pathlib.Path(kernel) / "values"
+    conn = sqlite3.connect(db)
+    out = []
+    for body, in conn.execute("select body from records order by instance, seq"):
+        send = json.loads(body)["what"].get("send") or {}
+        if (send.get("to") or {}).get("port") != "infer":
+            continue
+        h = send["delivery"]["value"].split(":")[1]
+        try:
+            value = json.loads((values / h[:2] / h[2:]).read_bytes())
+        except Exception:
+            continue
+        source = (value.get("body") or {}).get("source")
+        if source is not None:
+            out.append({"source": source, "ok": bool(send["result"]["outcome"]["ok"])})
+    return out
+
+
 def digest(cassette):
     """从录像整理这次尝试的经过。
 
@@ -218,6 +243,18 @@ def judge(task, model, attempt, d, code, faults, timed_out, seconds):
 
 def finish(task, model, attempt, code, faults, timed_out, seconds):
     d = digest(attempt / "cassette.json")
+    # make 的源码以 Journal 里 definition.infer 收到的为准：make(path=…) 的参数里没有源码。
+    # 每次 make 调用恰好对应一次 infer（失败的 make 若在 infer 之前就失败，如没有这个文件，则没有对应项），
+    # 所以按「读了源码的 make」的先后一一对应；给了 source 的 make 本来就有源码，不用对应。
+    infers = [b["source"] for b in built_sources(attempt / "kernel")]
+    k = 0
+    for m in d["makes"]:
+        if m["source"] != "":
+            k += 1
+            continue
+        if k < len(infers):
+            m["source"] = infers[k]
+            k += 1
     (attempt / "digest.json").write_text(json.dumps(d, ensure_ascii=False, indent=1))
     (attempt / "makes.json").write_text(json.dumps(d["makes"], ensure_ascii=False, indent=1))
     rec = judge(task, model, attempt, d, code, faults, timed_out, seconds)

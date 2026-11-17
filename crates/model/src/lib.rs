@@ -43,9 +43,23 @@ impl OpenAiCompatible {
         path: impl AsRef<Path>,
         identity: impl Into<String>,
     ) -> Result<Self, HostError> {
-        let value: Json = serde_json::from_slice(&fs::read(path).map_err(host)?).map_err(host)?;
-        croon_eval::schema::validate(&schema("model.provider"), &value)
-            .map_err(|error| HostError(format!("model provider config: {error:?}")))?;
+        let path = path.as_ref();
+        // 读不到时说清是哪个文件：用户填错路径时这是唯一的线索。
+        let bytes = fs::read(path).map_err(|error| {
+            HostError(format!(
+                "读不到模型服务的配置 {}：{error}。按 config/agent-provider.example.json 写一份，路径写在宿主配置的 model.provider 里",
+                path.display()
+            ))
+        })?;
+        let value: Json = serde_json::from_slice(&bytes).map_err(|error| {
+            HostError(format!("模型服务的配置 {} 不是合法的 JSON：{error}", path.display()))
+        })?;
+        croon_eval::schema::validate(&schema("model.provider"), &value).map_err(|error| {
+            HostError(format!(
+                "模型服务的配置 {} 缺字段或类型不对：{error:?}。需要 protocol、base_url、api_key、model、max_output_tokens、timeout_seconds，见 config/agent-provider.example.json",
+                path.display()
+            ))
+        })?;
         if value["protocol"] != "openai_chat_completions" {
             return Err(HostError("unsupported model provider protocol".into()));
         }

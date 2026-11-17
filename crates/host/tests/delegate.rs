@@ -29,6 +29,7 @@ fn library_root() -> Temp {
             .as_nanos()
     ));
     host::library::install(root.join("library"));
+    host::library::install_home_tools(&root);
     Temp(root)
 }
 

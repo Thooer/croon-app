@@ -8,6 +8,7 @@ use croon_eval::blocks::{Block, chain, expanded, find};
 pub static BLOCKS: &[Block] = croon_eval::block_files![
     "host.config",
     "host.root",
+    "home.tools",
     "library.scenario.delegate",
     "definition.infer",
 ];

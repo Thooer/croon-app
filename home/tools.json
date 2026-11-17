@@ -1,0 +1,6 @@
+{
+  "tools": [
+    {"kind": "functions", "package": "files"},
+    {"kind": "agent", "name": "s", "path": "library/s.py", "description": "在工作区里改代码，交回总结与改过的目录。input 写 {\"task\": 要做的事}。"}
+  ]
+}

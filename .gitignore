@@ -4,3 +4,4 @@ target/
 /library/directory.py
 /library/infer.py
 /config/agent-provider.json
+/library/tools.py

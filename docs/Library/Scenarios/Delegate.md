@@ -6,7 +6,7 @@ W0 与 S 都用私有工作区持有显式快照，见 ../Runtime.md 的「工�
 
 ## 场景
 
-根构造 S 与 W0，把 W0 的 Definition Bundle、S 的 Definition Bundle 和初始目录 Bundle 交给 W0。W0 第一次模型调用选择交办；实例化 S 时显式交付任务、S 的 Definition 与初始快照。S 写出新的目录 Bundle，W0 取到结束结果后先执行 diff，再由模型选择 merge。W0 的结束值携带最终采用的 Bundle。
+根构造 W0，把家目录 Bundle（Library 的包与工具清单）和初始目录 Bundle 交给 W0。W0 读家目录里的 tools.json，第一次模型调用选择交办 s；这时才从家目录读 s 的源码，经 infer、pack、construct 构造，再实例化，显式交付任务、s 的 Definition 与初始快照。S 写出新的目录 Bundle，W0 取到结束结果后先执行 diff，再由模型选择 merge。W0 的结束值携带最终采用的 Bundle。
 
 每次交出都同时写入 `delivery.value` 和 `delivery.dependencies`；模型结果没有依赖，文件执行从显式快照输入得到产物依赖。收到的 Bundle 不自动成为当前位置，由 W0 的工作区明确采用。预期还检验 W0 在等待期间没有复制工作区、S 的产物只通过结束结果交回，以及每个模型和文件执行 Atom 在提交前崩溃后不重复副作用。
 

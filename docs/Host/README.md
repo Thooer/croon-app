@@ -15,7 +15,7 @@
 1. 打开 Kernel：Language 只装 `lang0@1`；宿主 Port 按恢复身份装上模型（`model.generate`）与文件执行（`directory.exec`）。凭据只在宿主配置与提供者里，不进 Definition、输入或 Journal。
 2. 导入：家目录（Library 的包、生成模块与索引、默认工具清单，见 ../Library/Packages.md）、W0 的 Definition 与用户仓库。用户仓库经 Directory 的导入整份成为目录 Bundle，.git 与被忽略的文件都在内：W0 的合并要从候选里的仓库取提交。只想交出一部分的，先准备好那个目录。
 3. 创建 root entry，按「root entry」的 Interface 与 binding 接线。
-4. 作为客户端驱动 root entry：构造 W0，实例化它，输入是任务、仓库与家目录；按它的 Required port 附带 root entry 手里的同名 Port（W0 要 engine、exec、infer 与 Kernel 的 pack、construct、instantiate），向它的 Notify 登记并附带接到 done 的 back，按 via 取结束结果。别的 Definition 都是 W0 在运行中从家目录载入的，宿主不预先构造。
+4. 作为客户端驱动 root entry：构造 W0，实例化它，输入是任务、仓库与家目录；按它的 Required port 附带 root entry 手里的同名 Port（W0 要 engine、exec、infer 与 Kernel 的 pack、construct、instantiate），向它的 Notify 登记并附带接到 done 的 back，按 via 取结束结果。别的 Definition 都是 W0 在运行中从家目录载入的，宿主不预先构造。家目录是一份目录 Bundle，顶层是 `library/`（手写的包与生成模块）与 `tools.json`（默认清单，源码在仓库根的 home/），在导入时建成。
 5. 仓库的结果快照由根物化到一个新的空目录，不带家目录，不覆盖用户的仓库，写回见「待定」。家目录第一版不留存。
 
 ## 配置

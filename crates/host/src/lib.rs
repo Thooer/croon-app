@@ -215,8 +215,8 @@ impl Read for Code<'_> {
     }
 }
 
-/// 把 Library 装进临时目录，再导入成模块目录 Bundle：顶层是 library/。
-fn library_bundle(content: &Content, limits: directory::Limits) -> Result<String> {
+/// 把家目录装进临时目录，再导入成目录 Bundle：顶层是 library/ 与 tools.json，见 docs/Library/Packages.md。
+fn home_bundle(content: &Content, limits: directory::Limits) -> Result<String> {
     let root = std::env::temp_dir().join(format!(
         "croon-host-library-{}-{}",
         std::process::id(),
@@ -226,6 +226,7 @@ fn library_bundle(content: &Content, limits: directory::Limits) -> Result<String
             .unwrap_or(0)
     ));
     library::install(root.join("library"));
+    library::install_home_tools(&root);
     let imported = directory::import(content, &root, limits);
     let _ = std::fs::remove_dir_all(&root);
     Ok(imported?)
@@ -332,9 +333,8 @@ pub fn run(
     )?;
 
     let content = Content::from_inputs(kernel.store().clone(), &[], BUDGETS)?;
-    let modules = library_bundle(&content, settings.limits())?;
-    let s = definition(&content, library::source("s.py"), &modules)?;
-    let w0 = definition(&content, library::source("w0.py"), &modules)?;
+    let home = home_bundle(&content, settings.limits())?;
+    let w0 = definition(&content, library::source("w0.py"), &home)?;
     let snapshot = directory::import(&content, repo, settings.limits())?;
 
     let root = match kernel.index().root().map(ToString::to_string) {
@@ -360,7 +360,7 @@ pub fn run(
                 "infer".into(),
                 json!({"host": inferrer.id(), "spec": requires["infer"]}),
             );
-            let input = json!({"value": null, "dependencies": sorted(vec![w0.clone(), s.clone(), snapshot.clone()])});
+            let input = json!({"value": null, "dependencies": sorted(vec![w0.clone(), home.clone(), snapshot.clone()])});
             kernel.create_root(
                 &bundle,
                 &input,
@@ -389,13 +389,6 @@ pub fn run(
         conn,
     };
     client.send(
-        "construct-s",
-        json!({"port": "construct"}),
-        json!({"definition": s}),
-        vec![s.clone()],
-        json!({}),
-    )?;
-    client.send(
         "construct-w0",
         json!({"port": "construct"}),
         json!({"definition": w0}),
@@ -407,11 +400,11 @@ pub fn run(
         json!({"port": "instantiate"}),
         json!({
             "definition": w0,
-            "input": {"value": {"task": task, "worker": s, "snapshot": snapshot}, "dependencies": sorted(vec![s.clone(), snapshot.clone()])},
+            "input": {"value": {"task": task, "home": home, "snapshot": snapshot}, "dependencies": sorted(vec![home.clone(), snapshot.clone()])},
             "seats": {},
             "self": {"back": "port/done"}
         }),
-        vec![w0.clone(), s.clone(), snapshot.clone()],
+        vec![w0.clone(), home.clone(), snapshot.clone()],
         json!({"engine": {"port": "engine"}, "exec": {"port": "exec"}, "instantiate": {"port": "instantiate"}, "pack": {"port": "pack"}, "construct": {"port": "construct"}, "infer": {"port": "infer"}}),
     )?;
     let notify = spawned["attach"]["notify"]["handle"]

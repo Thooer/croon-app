@@ -52,12 +52,26 @@ expected = block("library.scenario.delegate")
 values = {**block(SHARED)["values"], **expected["values"]}
 
 
-def contents_of(bundle_id, content_id):
-    """一份 Bundle 的描述与它的 content：croon.read_json 读两层。"""
-    spec = values[bundle_id]["$bundle"]
-    dependencies = values[bundle_id]["dependencies"]
-    return {bundle_id: {"value": {"content": content_id, "dependencies": dependencies}},
-            content_id: {"value": {"language": spec["language"], "interface": spec["interface"], "body": spec["body"]}}}
+def file_entry(name, text):
+    """家目录里的一个文件：croon.read_json 读它的 Bundle 描述，再读 content。"""
+    return {f"sha256:f-{name}": {"value": {"content": f"sha256:c-{name}", "dependencies": []}},
+            f"sha256:c-{name}": {"value": text}}
+
+
+def home_contents(tools_json, s_source):
+    """W0 读的家目录：顶层 Tree 里有 tools.json 与 library/，library/ 里有 s.py。"""
+    out = {"sha256:lhome": {"value": {"content": "sha256:lhome-tree", "dependencies": []}},
+           "sha256:lhome-tree": {"value": {"tools.json": {"file": "sha256:f-tools", "x": False},
+                                          "library": {"dir": "sha256:llibdir"}}},
+           "sha256:llibdir": {"value": {"content": "sha256:llibdir-tree", "dependencies": []}},
+           "sha256:llibdir-tree": {"value": {"s.py": {"file": "sha256:f-s", "x": False}}}}
+    # construct 返回的 s：W0 交办前读它的 Interface。
+    out["sha256:ls"] = {"value": {"content": "sha256:lscontent", "dependencies": []}}
+    out["sha256:lscontent"] = {"value": {"language": "lang0@1", "interface": S_INTERFACE,
+                                         "body": {"source": S_SOURCE, "modules": "sha256:lhome"}}}
+    out.update(file_entry("tools", tools_json))
+    out.update(file_entry("s", s_source))
+    return out
 
 
 def ok(value, attach=None, derived=None, dependencies=[]):
@@ -78,22 +92,31 @@ def rev(n):
 
 
 S_OUT = {"summary": "改好了 a.py", "snapshot": "sha256:lrepo2"}
+S_SOURCE = (ROOT / "library" / "s.py").read_text()
+# 家目录里的工具清单：规范文本，与宿主放进家目录的一致。
+TOOLS_JSON = json.loads((ROOT / "home" / "tools.json").read_text())
+S_INTERFACE = values["sha256:ls"]["$bundle"]["interface"]
+S_IN = {"task": "修好 a.py", "snapshot": "sha256:lrepo"}
 SCRIPTS = {
     "s": ({"0": llm("", [{"id": "c1", "name": "write_file", "input": {"path": "a.py", "content": "fixed\n"}}]),
            "1": done_exec(snapshot="sha256:lrepo2"),
            "2": llm("改好了 a.py", [])},
-          {"task": "修好 a.py", "snapshot": "sha256:lrepo"}, {"engine": "port", "exec": "port"}, {}),
+          S_IN, {"engine": "port", "exec": "port"}, {}),
+    # W0：先读家目录里的清单，交办时按清单第一次构造 s：读源码、infer、pack、construct，再实例化、登记、取、diff、merge。
     "w0": ({"0": llm("", [{"id": "c1", "name": "delegate", "input": {"agent": "s", "input": {"task": "修好 a.py"}}}]),
-            "1": ok(None, attach={"look": {"handle": "h-slook", "spec": "sha256:pslook"},
+            "1": ok({"interface": S_INTERFACE}),
+            "2": ok({"id": "sha256:ls"}),
+            "3": ok({"id": "sha256:ls"}),
+            "4": ok(None, attach={"look": {"handle": "h-slook", "spec": "sha256:pslook"},
                                   "notify": {"handle": "h-snotify", "spec": "sha256:psnotify"},
                                   "correct": {"handle": "h-scorrect", "spec": "sha256:pscorrect"}},
                     derived={"engine": {"handle": "h-sengine", "revoker": rev(5)}, "exec": {"handle": "h-sexec", "revoker": rev(6)}}),
-            "2": ok(None, derived={"to": {"handle": "h-sdone", "revoker": rev(7)}}),
-            "3": {"arrival": {"port": "done", "sender": "i-s", "via": "h-sdone", "delivery": {"value": {"ok": True, "value": S_OUT, "dependencies": ["sha256:lrepo2"]}, "dependencies": ["sha256:lrepo2"]}, "attach": {}}},
-            "4": done_exec(" a.py | 2 +-\n 1 file changed, 1 insertion(+), 1 deletion(-)\n"),
-            "5": llm("", [{"id": "c2", "name": "merge", "input": {"name": "s"}}]),
-            "6": llm("已修好 a.py", [])},
-           {"task": "修好 a.py", "worker": "sha256:ls", "snapshot": "sha256:lrepo"},
+            "5": ok(None, derived={"to": {"handle": "h-sdone", "revoker": rev(7)}}),
+            "6": {"arrival": {"port": "done", "sender": "i-s", "via": "h-sdone", "delivery": {"value": {"ok": True, "value": S_OUT, "dependencies": ["sha256:lrepo2"]}, "dependencies": ["sha256:lrepo2"]}, "attach": {}}},
+            "7": done_exec(" a.py | 2 +-\n 1 file changed, 1 insertion(+), 1 deletion(-)\n"),
+            "8": llm("", [{"id": "c2", "name": "merge", "input": {"name": "s"}}]),
+            "9": llm("已修好 a.py", [])},
+           {"task": "修好 a.py", "home": "sha256:lhome", "snapshot": "sha256:lrepo"},
            {"engine": "port", "exec": "port", "instantiate": "port", "pack": "port", "construct": "port", "infer": "port", "back": "port"}, {"done": "inbox"}),
 }
 
@@ -101,7 +124,7 @@ out = {}
 for name, (results, inp, refs, inboxes) in SCRIPTS.items():
     source = (work / "library" / f"{name}.py").read_text()
     iface = croon.interface(source, loader)
-    croon.DRIVER = croon.Driver(results, contents=contents_of("sha256:ls", "sha256:lscontent"), birth={"definition": {"body": {"modules": "sha256:lrepo"}}, "seat": None, "roster": None})
+    croon.DRIVER = croon.Driver(results, contents=home_contents(TOOLS_JSON, S_SOURCE), birth={"definition": {"body": {"modules": "sha256:lhome"}}, "seat": None, "roster": None})
     mod = importlib.import_module(f"library.{name}")
     args = dict(inp)
     for k in refs:

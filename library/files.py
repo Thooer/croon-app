@@ -1,5 +1,5 @@
 """文件工具：读、写、运行，都在调用方的私有工作区里，见 library.workspace。"""
-from typing import Callable, TypedDict
+from typing import Any, Callable, TypedDict
 from library.directory import Exec
 from library.workspace import Workspace, advance
 
@@ -41,3 +41,8 @@ def file_tools(exec: Exec, ws: Workspace) -> list[Callable]:
         return {"exit": r["exit"], "stdout": r["stdout"], "stderr": r["stderr"]}
 
     return [read_file, write_file, run]
+
+
+def tools(supply: dict[str, Any], ws: Workspace) -> list[Callable]:
+    """函数工具包 files：读、写、运行，都在 ws 里。supply 是主体愿意交出的 Port，这里只用 exec。"""
+    return file_tools(supply["exec"], ws)

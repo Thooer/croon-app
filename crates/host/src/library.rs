@@ -29,6 +29,20 @@ pub const SOURCES: &[(&str, &str)] = &[
     ),
 ];
 
+/// 默认的工具清单，源码在仓库根的 home/tools.json，编进二进制。
+pub const HOME_TOOLS: &str = include_str!("../../../home/tools.json");
+
+/// 把默认工具清单写成家目录里的 tools.json：规范文本，W0 用 `croon.read_json` 读它。
+pub fn install_home_tools(output: impl AsRef<Path>) {
+    let tools: Json = serde_json::from_str(HOME_TOOLS).unwrap();
+    croon_eval::schema::validate(&crate::schema("home.tools"), &tools).unwrap();
+    fs::write(
+        output.as_ref().join("tools.json"),
+        croon_eval::value::canonical(&tools).unwrap(),
+    )
+    .unwrap();
+}
+
 /// 一个手写模块的源码。
 pub fn source(name: &str) -> &'static str {
     SOURCES
@@ -37,6 +51,9 @@ pub fn source(name: &str) -> &'static str {
         .map(|(_, s)| *s)
         .unwrap_or_else(|| panic!("Library 里没有 {name}"))
 }
+
+/// 函数工具包：库里有 `tools(supply, ws)` 的手写模块，名字就是模块名。清单按这个名字载入。
+pub const TOOL_PACKAGES: &[&str] = &["files"];
 
 /// 把手写模块与生成模块一起写进 `output`，得到完整的 library 目录。
 pub fn install(output: impl AsRef<Path>) {
@@ -86,6 +103,26 @@ pub fn generate(output: impl AsRef<Path>) {
     fs::write(output.join("directory.py"), directory).unwrap();
     let infer = port_module("Infer", crate::schema("definition.infer"));
     fs::write(output.join("infer.py"), infer).unwrap();
+    fs::write(output.join("tools.py"), tools_module()).unwrap();
+}
+
+/// library.tools：诞生时可载入的函数工具包。Lang0 不能在运行中按名字取函数，所以这张清单由宿主生成、
+/// 随目录 Bundle 固定；要新增一个包，加手写模块并列进 [`TOOL_PACKAGES`]。
+fn tools_module() -> String {
+    let mut out = String::from(
+        "\"\"\"可载入的函数工具包：名字到它的 tools(supply, ws)。由宿主生成，随目录 Bundle 固定。\"\"\"\nfrom typing import Any, Callable\n",
+    );
+    for name in TOOL_PACKAGES {
+        out.push_str(&format!("from library import {name} as _{name}\n"));
+    }
+    out.push_str("\n\ndef load(package: str, supply: dict[str, Any], ws: Any) -> list[Callable]:\n    \"\"\"载入一个函数工具包。\"\"\"\n");
+    for name in TOOL_PACKAGES {
+        out.push_str(&format!(
+            "    if package == \"{name}\":\n        return _{name}.tools(supply, ws)\n"
+        ));
+    }
+    out.push_str("    raise KeyError(f\"没有名为 {package} 的函数工具包\")\n");
+    out
 }
 
 fn port_module(name: &'static str, spec: Json) -> String {

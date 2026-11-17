@@ -47,21 +47,17 @@ def _source(ws: Workspace, pack: Pack, modules: str, path: str) -> Any:
     return [main, packed["id"]]
 
 
-def delegation_tools(ws: Workspace, exec: Exec, instantiate: Instantiate, supply: Any, back: Done,
-                     done: Inbox(Done), pack: Pack, construct: Construct, infer: Infer, modules: str,
-                     preset: Any) -> list[Callable]:
+def delegation_tools(ws: Workspace, home: Workspace, exec: Exec, instantiate: Instantiate, supply: Any,
+                     back: Done, done: Inbox(Done), pack: Pack, construct: Construct, infer: Infer,
+                     listed: Any) -> list[Callable]:
     """交办与并入两个工具。
 
-    supply 是交办的一方愿意交出的 Port；preset 是名字到 Definition ID，造出来的也记在同一张表里。
+    ws 是仓库的工作区，home 是家目录的；supply 是交办的一方愿意交出的 Port；listed 是清单里常驻的 Agent，
+    名字到它在家目录里的源码路径，第一次交办时才构造。
     """
-    agents = dict(preset)
+    agents = {}
 
-    def make(name: str, source: str, path: str) -> str:
-        mods = modules
-        if path != "":
-            got = _source(ws, pack, modules, path)
-            source = got[0]
-            mods = got[1]
+    def make(name: str, source: str, mods: str) -> str:
         interface = infer_interface(infer, source, mods)
         missing = unsupplied(interface, supply)
         if missing:
@@ -77,10 +73,10 @@ def delegation_tools(ws: Workspace, exec: Exec, instantiate: Instantiate, supply
     def delegate(agent: str, input: Any, source: str = "", path: str = "") -> Any:
         """交办一件事给一个 Agent，等它结束，交回它的结束值。
 
-        agent 是它的名字：预置的 s 在工作区里改代码，input 写 {"task": 要做的事}。自己造的，给 source 或 path，
-        造好记在这个名字下，名字重了会加序号，用返回的 agent；之后只给名字就行。它要 engine 与 exec 之外的
-        Port 时，交办的一方给不了。input 里有 snapshot 的，工作区的当前位置由这里填，不用写；结束值带
-        snapshot 的，一并交回 name 与 diff，满意了再用 merge 并入。
+        agent 是它的名字：系统提示里列着的是现成的；自己造的，给 source 或 path，造好记在这个名字下，名字重了
+        会加序号，用返回的 agent；之后只给名字就行。它要 engine 与 exec 之外的 Port 时，交办的一方给不了。
+        input 里有 snapshot 的，工作区的当前位置由这里填，不用写；结束值带 snapshot 的，一并交回 name 与
+        diff，满意了再用 merge 并入。
 
         Args:
             agent: Agent 的名字。
@@ -91,8 +87,14 @@ def delegation_tools(ws: Workspace, exec: Exec, instantiate: Instantiate, supply
         if source != "" and path != "":
             raise ValueError("source 与 path 只给一个")
         name = agent
-        if source != "" or path != "":
-            name = make(agent, source, path)
+        modules = home["current"]
+        if source != "":
+            name = make(agent, source, modules)
+        if path != "":
+            got = _source(ws, pack, modules, path)
+            name = make(agent, got[0], got[1])
+        if name not in agents and name in listed:
+            name = make(name, read_text_at(home, listed[name]), modules)
         if name not in agents:
             raise ValueError(f"没有名为 {name} 的 Agent")
         definition = agents[name]

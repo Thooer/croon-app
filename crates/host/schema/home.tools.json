@@ -1,0 +1,35 @@
+{
+  "description": "家目录的工具清单：W0 启动时载入哪些函数工具包，常驻哪些 Agent；只写名字与路径，不携带权利",
+  "type": "object",
+  "properties": {
+    "tools": {
+      "type": "array",
+      "items": {
+        "anyOf": [
+          {
+            "type": "object",
+            "properties": {
+              "kind": {"enum": ["functions"]},
+              "package": {"type": "string", "description": "函数工具包的名字，要在 library.tools 里"}
+            },
+            "required": ["kind", "package"],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "kind": {"enum": ["agent"]},
+              "name": {"type": "string", "description": "交办时用的名字"},
+              "path": {"type": "string", "description": "家目录里的源码路径，如 library/s.py"},
+              "description": {"type": "string", "description": "一句话，常驻系统提示"}
+            },
+            "required": ["kind", "name", "path", "description"],
+            "additionalProperties": false
+          }
+        ]
+      }
+    }
+  },
+  "required": ["tools"],
+  "additionalProperties": false
+}

@@ -11,12 +11,13 @@ Library 是一组包；用户有一个家目录，装着它们，也装着工具
 - **索引**：宿主从源码推出，规则与推 Interface、`croon.tool` 的说明相同：签名、类型、docstring 与其中的 `Args:`，Port 与 TypedDict 一并收。索引是源码的派生物，不是第二份事实；它在建包时生成，随包一起固定，所以永远与代码的版本对得上。推导只有宿主做得到，见 ../Host/README.md「构造的推导」。
 - **按层展开**：一句话（包与模块的 docstring 首行）、README、模块索引、源码。模型按需要往下读，每一层作为工具结果进入历史；常驻的只有一行说明，所以前缀稳定。
 - **例子**是包里可以直接运行的主体。测试负责构造并运行它们，例子因此不会过期；模型可以照抄它的源码，也可以直接实例化它。
-- **生成模块**由宿主从 Port 规格生成，与手写的包一起固定进目录 Bundle，重放不随宿主构建改变类型：library.kernel 只提供 KernelPort 的 Port spec 与 Outcome；library.model 的 Generate 来自 model.generate；library.directory 的 Exec 来自 directory.exec；library.infer 的 Infer 来自 definition.infer。它们的源码不进 Git，由本仓库的生成器产生。手写的源码在仓库根的 library/。
+- **生成模块**由宿主生成，与手写的包一起固定进目录 Bundle，重放不随宿主构建改变类型：library.kernel 只提供 KernelPort 的 Port spec 与 Outcome；library.model 的 Generate 来自 model.generate；library.directory 的 Exec 来自 directory.exec；library.infer 的 Infer 来自 definition.infer；library.tools 列出诞生时可载入的函数工具包，见 Runtime.md「工具」。它们的源码不进 Git，由本仓库的生成器产生。手写的源码在仓库根的 library/。
 
 ## 家目录
 
 家目录是用户的内容：Library 里的包、工具清单、技能。它是一个工作区，规则见 Runtime.md「工作区」。
 
+- **形状**：目录顶层是 `library/`（包）与 `tools.json`（工具清单，形状是 `home.tools`）。清单只写名字、路径与说明，不携带权利：函数工具包写名字，Agent 写它在家目录里的源码路径。默认清单在仓库根的 home/ 下，与 library/ 一起建成家目录。
 - **属于用户，不属于手。** 装上的包与载入的清单要在手结束之后还在，也要让用户的别的手看得见，所以不放在某一个手里。手经接线拿到读与提交的权利，见 Presets.md「预置给谁」。第一版把它作为目录 Bundle 交给手，像用户仓库一样；这次运行里装的东西在这次运行里有效，结束时不写回。留存与共享见待定。
 - **与仓库分开**：它与用户仓库是两个工作区，当前位置各自移动；物化结果时不带家目录。
 

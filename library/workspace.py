@@ -83,6 +83,14 @@ def entry(ws: Workspace, path: str) -> dict[str, Any]:
     return node
 
 
+def read_json_at(ws: Workspace, path: str) -> Any:
+    """读当前位置里一个 JSON 文件；文件要是规范文本（键有序、没有多余空白），否则读不到。"""
+    node = entry(ws, path)
+    if "file" not in node:
+        raise OSError(f"{path} 不是文件")
+    return croon.read_json(croon.read_json(node["file"])["content"])
+
+
 def read_text_at(ws: Workspace, path: str) -> str:
     """读当前位置里一个文件的文本，不起 exec。"""
     node = entry(ws, path)

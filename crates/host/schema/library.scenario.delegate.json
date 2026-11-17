@@ -1,16 +1,14 @@
 {
   "values": {
-    "sha256:llib": {
-      "$tree": "library"
-    },
     "sha256:lrepo": {
       "$bundle": {
-        "library": {
-          "dir": "sha256:llib"
+        "a.py": {
+          "file": "sha256:lbroken",
+          "x": false
         }
       },
       "dependencies": [
-        "sha256:llib"
+        "sha256:lbroken"
       ]
     },
     "sha256:lfile": {
@@ -18,16 +16,12 @@
     },
     "sha256:lrepo2": {
       "$bundle": {
-        "library": {
-          "dir": "sha256:llib"
-        },
         "a.py": {
           "file": "sha256:lfile",
           "x": false
         }
       },
       "dependencies": [
-        "sha256:llib",
         "sha256:lfile"
       ]
     },
@@ -84,11 +78,11 @@
           "source": {
             "$file": "library/s.py"
           },
-          "modules": "sha256:lrepo"
+          "modules": "sha256:lhome"
         }
       },
       "dependencies": [
-        "sha256:lrepo"
+        "sha256:lhome"
       ]
     },
     "sha256:lw0": {
@@ -106,21 +100,21 @@
             "in": {
               "additionalProperties": false,
               "properties": {
-                "snapshot": {
-                  "type": "string"
-                },
                 "task": {
                   "description": "要做的事。",
                   "type": "string"
                 },
-                "worker": {
-                  "description": "预置的 s 的 Definition ID。",
+                "home": {
+                  "description": "家目录的 Bundle ID，里面有包与工具清单。",
+                  "type": "string"
+                },
+                "snapshot": {
                   "type": "string"
                 }
               },
               "required": [
                 "task",
-                "worker",
+                "home",
                 "snapshot"
               ],
               "type": "object"
@@ -147,15 +141,12 @@
           "source": {
             "$file": "library/w0.py"
           },
-          "modules": "sha256:lrepo"
+          "modules": "sha256:lhome"
         }
       },
       "dependencies": [
-        "sha256:lrepo"
+        "sha256:lhome"
       ]
-    },
-    "sha256:lcs": {
-      "definition": "sha256:ls"
     },
     "sha256:lcw0": {
       "definition": "sha256:lw0"
@@ -165,11 +156,11 @@
       "input": {
         "value": {
           "task": "修好 a.py",
-          "worker": "sha256:ls",
+          "home": "sha256:lhome",
           "snapshot": "sha256:lrepo"
         },
         "dependencies": [
-          "sha256:ls",
+          "sha256:lhome",
           "sha256:lrepo"
         ]
       },
@@ -180,7 +171,7 @@
     },
     "sha256:lw0in": {
       "task": "修好 a.py",
-      "worker": "sha256:ls",
+      "home": "sha256:lhome",
       "snapshot": "sha256:lrepo"
     },
     "sha256:lsin": {
@@ -389,7 +380,7 @@
       ]
     },
     "sha256:lw0send0": {
-      "system": "你是 W0。能自己改，也能把一件事交办给 Agent：预置的 s 改代码，也可以自己写 Lang0 源码造新的；交回的先看 diff，满意再并入。",
+      "system": "你是 W0。能改仓库里的文件、跑命令，也能把一件事交办给 Agent：现成的见下，也可以自己写 Lang0 源码造新的；交回的先看 diff，满意再并入。\n现成的 Agent：\n- s：在工作区里改代码，交回总结与改过的目录。input 写 {\"task\": 要做的事}。",
       "messages": [
         {
           "role": "user",
@@ -459,7 +450,7 @@
         },
         {
           "name": "delegate",
-          "description": "交办一件事给一个 Agent，等它结束，交回它的结束值。\n\nagent 是它的名字：预置的 s 在工作区里改代码，input 写 {\"task\": 要做的事}。自己造的，给 source 或 path，\n造好记在这个名字下，名字重了会加序号，用返回的 agent；之后只给名字就行。它要 engine 与 exec 之外的\nPort 时，交办的一方给不了。input 里有 snapshot 的，工作区的当前位置由这里填，不用写；结束值带\nsnapshot 的，一并交回 name 与 diff，满意了再用 merge 并入。",
+          "description": "交办一件事给一个 Agent，等它结束，交回它的结束值。\n\nagent 是它的名字：系统提示里列着的是现成的；自己造的，给 source 或 path，造好记在这个名字下，名字重了\n会加序号，用返回的 agent；之后只给名字就行。它要 engine 与 exec 之外的 Port 时，交办的一方给不了。\ninput 里有 snapshot 的，工作区的当前位置由这里填，不用写；结束值带 snapshot 的，一并交回 name 与\ndiff，满意了再用 merge 并入。",
           "input": {
             "type": "object",
             "properties": {
@@ -537,7 +528,7 @@
       "timeout": 60
     },
     "sha256:lw0send5": {
-      "system": "你是 W0。能自己改，也能把一件事交办给 Agent：预置的 s 改代码，也可以自己写 Lang0 源码造新的；交回的先看 diff，满意再并入。",
+      "system": "你是 W0。能改仓库里的文件、跑命令，也能把一件事交办给 Agent：现成的见下，也可以自己写 Lang0 源码造新的；交回的先看 diff，满意再并入。\n现成的 Agent：\n- s：在工作区里改代码，交回总结与改过的目录。input 写 {\"task\": 要做的事}。",
       "messages": [
         {
           "role": "user",
@@ -642,7 +633,7 @@
         },
         {
           "name": "delegate",
-          "description": "交办一件事给一个 Agent，等它结束，交回它的结束值。\n\nagent 是它的名字：预置的 s 在工作区里改代码，input 写 {\"task\": 要做的事}。自己造的，给 source 或 path，\n造好记在这个名字下，名字重了会加序号，用返回的 agent；之后只给名字就行。它要 engine 与 exec 之外的\nPort 时，交办的一方给不了。input 里有 snapshot 的，工作区的当前位置由这里填，不用写；结束值带\nsnapshot 的，一并交回 name 与 diff，满意了再用 merge 并入。",
+          "description": "交办一件事给一个 Agent，等它结束，交回它的结束值。\n\nagent 是它的名字：系统提示里列着的是现成的；自己造的，给 source 或 path，造好记在这个名字下，名字重了\n会加序号，用返回的 agent；之后只给名字就行。它要 engine 与 exec 之外的 Port 时，交办的一方给不了。\ninput 里有 snapshot 的，工作区的当前位置由这里填，不用写；结束值带 snapshot 的，一并交回 name 与\ndiff，满意了再用 merge 并入。",
           "input": {
             "type": "object",
             "properties": {
@@ -689,7 +680,7 @@
       ]
     },
     "sha256:lw0send6": {
-      "system": "你是 W0。能自己改，也能把一件事交办给 Agent：预置的 s 改代码，也可以自己写 Lang0 源码造新的；交回的先看 diff，满意再并入。",
+      "system": "你是 W0。能改仓库里的文件、跑命令，也能把一件事交办给 Agent：现成的见下，也可以自己写 Lang0 源码造新的；交回的先看 diff，满意再并入。\n现成的 Agent：\n- s：在工作区里改代码，交回总结与改过的目录。input 写 {\"task\": 要做的事}。",
       "messages": [
         {
           "role": "user",
@@ -819,7 +810,7 @@
         },
         {
           "name": "delegate",
-          "description": "交办一件事给一个 Agent，等它结束，交回它的结束值。\n\nagent 是它的名字：预置的 s 在工作区里改代码，input 写 {\"task\": 要做的事}。自己造的，给 source 或 path，\n造好记在这个名字下，名字重了会加序号，用返回的 agent；之后只给名字就行。它要 engine 与 exec 之外的\nPort 时，交办的一方给不了。input 里有 snapshot 的，工作区的当前位置由这里填，不用写；结束值带\nsnapshot 的，一并交回 name 与 diff，满意了再用 merge 并入。",
+          "description": "交办一件事给一个 Agent，等它结束，交回它的结束值。\n\nagent 是它的名字：系统提示里列着的是现成的；自己造的，给 source 或 path，造好记在这个名字下，名字重了\n会加序号，用返回的 agent；之后只给名字就行。它要 engine 与 exec 之外的 Port 时，交办的一方给不了。\ninput 里有 snapshot 的，工作区的当前位置由这里填，不用写；结束值带 snapshot 的，一并交回 name 与\ndiff，满意了再用 merge 并入。",
           "input": {
             "type": "object",
             "properties": {
@@ -870,6 +861,418 @@
         "$block": "host.root"
       },
       "dependencies": []
+    },
+    "sha256:lhome": {
+      "$tree": "."
+    },
+    "sha256:lbroken": {
+      "$bytes": "broken\n"
+    },
+    "sha256:lw0infer": {
+      "language": "lang0@1",
+      "body": {
+        "source": "\"\"\"S：被交办的子 Agent，在显式交付的目录 Bundle 中改代码，交回总结与产物 Bundle。\"\"\"\nfrom typing import TypedDict\nimport croon\nfrom library.model import Generate\nfrom library.directory import Exec\nfrom library.files import file_tools\nfrom library.react import react\nfrom library.workspace import workspace\n\nOut = TypedDict(\"Out\", {\"summary\": str, \"snapshot\": str})\n\nSYSTEM = \"你在 /work 里改代码。改完用一两句话说清改了什么。\"\n\n\ndef main(task: str, snapshot: str, engine: Generate, exec: Exec) -> Out:\n    \"\"\"改一处代码，交回总结与改过的 Bundle。\"\"\"\n    ws = workspace(snapshot)\n    summary = react(engine, file_tools(exec, ws), [{\"role\": \"user\", \"text\": task}], SYSTEM)\n    return croon.deliver({\"summary\": summary, \"snapshot\": ws[\"current\"]}, [ws[\"current\"]])\n",
+        "modules": "sha256:lhome"
+      }
+    },
+    "sha256:lw0pack": {
+      "content": {
+        "json": {
+          "language": "lang0@1",
+          "interface": {
+            "description": "改一处代码，交回总结与改过的 Bundle。",
+            "provides": {},
+            "requires": {
+              "engine": {
+                "attach": {
+                  "additionalProperties": false
+                },
+                "description": "请求一次模型生成；提供者和模型由这份 Reference 决定",
+                "in": {
+                  "$defs": {
+                    "call": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "input": {},
+                        "name": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "name",
+                        "input"
+                      ],
+                      "type": "object"
+                    },
+                    "message": {
+                      "anyOf": [
+                        {
+                          "additionalProperties": false,
+                          "properties": {
+                            "role": {
+                              "enum": [
+                                "user"
+                              ]
+                            },
+                            "text": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "role",
+                            "text"
+                          ],
+                          "type": "object"
+                        },
+                        {
+                          "additionalProperties": false,
+                          "properties": {
+                            "calls": {
+                              "items": {
+                                "$ref": "#/$defs/call"
+                              },
+                              "type": "array"
+                            },
+                            "reasoning": {
+                              "anyOf": [
+                                {
+                                  "type": "string"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "role": {
+                              "enum": [
+                                "assistant"
+                              ]
+                            },
+                            "text": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "role",
+                            "text",
+                            "reasoning",
+                            "calls"
+                          ],
+                          "type": "object"
+                        },
+                        {
+                          "additionalProperties": false,
+                          "properties": {
+                            "results": {
+                              "items": {
+                                "additionalProperties": false,
+                                "properties": {
+                                  "id": {
+                                    "type": "string"
+                                  },
+                                  "is_error": {
+                                    "type": "boolean"
+                                  },
+                                  "name": {
+                                    "type": "string"
+                                  },
+                                  "output": {}
+                                },
+                                "required": [
+                                  "id",
+                                  "name",
+                                  "output",
+                                  "is_error"
+                                ],
+                                "type": "object"
+                              },
+                              "type": "array"
+                            },
+                            "role": {
+                              "enum": [
+                                "tool"
+                              ]
+                            }
+                          },
+                          "required": [
+                            "role",
+                            "results"
+                          ],
+                          "type": "object"
+                        }
+                      ]
+                    }
+                  },
+                  "additionalProperties": false,
+                  "properties": {
+                    "max_output_tokens": {
+                      "type": "integer"
+                    },
+                    "messages": {
+                      "items": {
+                        "$ref": "#/$defs/message"
+                      },
+                      "type": "array"
+                    },
+                    "system": {
+                      "type": "string"
+                    },
+                    "timeout": {
+                      "type": "integer"
+                    },
+                    "tools": {
+                      "items": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "description": {
+                            "type": "string"
+                          },
+                          "input": {
+                            "type": "object"
+                          },
+                          "name": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "name",
+                          "description",
+                          "input"
+                        ],
+                        "type": "object"
+                      },
+                      "type": "array"
+                    }
+                  },
+                  "required": [
+                    "system",
+                    "messages",
+                    "tools"
+                  ],
+                  "type": "object"
+                },
+                "out": {
+                  "attach": {
+                    "additionalProperties": false
+                  },
+                  "value": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "calls": {
+                        "items": {
+                          "additionalProperties": false,
+                          "properties": {
+                            "id": {
+                              "type": "string"
+                            },
+                            "input": {},
+                            "name": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "name",
+                            "input"
+                          ],
+                          "type": "object"
+                        },
+                        "type": "array"
+                      },
+                      "finish": {
+                        "enum": [
+                          "stop",
+                          "length",
+                          "tool_calls",
+                          "content_filter",
+                          "other"
+                        ]
+                      },
+                      "reasoning": {
+                        "anyOf": [
+                          {
+                            "type": "string"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "text": {
+                        "type": "string"
+                      },
+                      "usage": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "input": {
+                            "anyOf": [
+                              {
+                                "type": "integer"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "output": {
+                            "anyOf": [
+                              {
+                                "type": "integer"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          }
+                        },
+                        "required": [
+                          "input",
+                          "output"
+                        ],
+                        "type": "object"
+                      }
+                    },
+                    "required": [
+                      "text",
+                      "reasoning",
+                      "calls",
+                      "finish",
+                      "usage"
+                    ],
+                    "type": "object"
+                  }
+                }
+              },
+              "exec": {
+                "attach": {
+                  "additionalProperties": false
+                },
+                "description": "从显式快照建立独立环境，运行命令，交付稳定产物；不自动采用结果",
+                "in": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "argv": {
+                      "items": {
+                        "type": "string"
+                      },
+                      "type": "array"
+                    },
+                    "mounts": {
+                      "additionalProperties": {
+                        "type": "string"
+                      },
+                      "type": "object"
+                    },
+                    "snapshot": {
+                      "type": "string"
+                    },
+                    "stdin": {
+                      "type": "string"
+                    },
+                    "timeout": {
+                      "description": "秒，正数，至多 600",
+                      "type": "integer"
+                    }
+                  },
+                  "required": [
+                    "snapshot",
+                    "mounts",
+                    "argv",
+                    "stdin",
+                    "timeout"
+                  ],
+                  "type": "object"
+                },
+                "out": {
+                  "attach": {
+                    "additionalProperties": false
+                  },
+                  "value": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "exit": {
+                        "type": "integer"
+                      },
+                      "snapshot": {
+                        "type": "string"
+                      },
+                      "stderr": {
+                        "type": "string"
+                      },
+                      "stdout": {
+                        "type": "string"
+                      },
+                      "timed_out": {
+                        "type": "boolean"
+                      },
+                      "truncated": {
+                        "type": "boolean"
+                      }
+                    },
+                    "required": [
+                      "exit",
+                      "stdout",
+                      "stderr",
+                      "timed_out",
+                      "truncated",
+                      "snapshot"
+                    ],
+                    "type": "object"
+                  }
+                }
+              }
+            },
+            "signature": {
+              "in": {
+                "additionalProperties": false,
+                "properties": {
+                  "snapshot": {
+                    "type": "string"
+                  },
+                  "task": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "task",
+                  "snapshot"
+                ],
+                "type": "object"
+              },
+              "out": {
+                "additionalProperties": false,
+                "properties": {
+                  "snapshot": {
+                    "type": "string"
+                  },
+                  "summary": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "summary",
+                  "snapshot"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "body": {
+            "source": "\"\"\"S：被交办的子 Agent，在显式交付的目录 Bundle 中改代码，交回总结与产物 Bundle。\"\"\"\nfrom typing import TypedDict\nimport croon\nfrom library.model import Generate\nfrom library.directory import Exec\nfrom library.files import file_tools\nfrom library.react import react\nfrom library.workspace import workspace\n\nOut = TypedDict(\"Out\", {\"summary\": str, \"snapshot\": str})\n\nSYSTEM = \"你在 /work 里改代码。改完用一两句话说清改了什么。\"\n\n\ndef main(task: str, snapshot: str, engine: Generate, exec: Exec) -> Out:\n    \"\"\"改一处代码，交回总结与改过的 Bundle。\"\"\"\n    ws = workspace(snapshot)\n    summary = react(engine, file_tools(exec, ws), [{\"role\": \"user\", \"text\": task}], SYSTEM)\n    return croon.deliver({\"summary\": summary, \"snapshot\": ws[\"current\"]}, [ws[\"current\"]])\n",
+            "modules": "sha256:lhome"
+          }
+        }
+      },
+      "dependencies": [
+        "sha256:lhome"
+      ]
+    },
+    "sha256:lw0construct": {
+      "definition": "sha256:ls"
     }
   },
   "journals": {
@@ -882,8 +1285,8 @@
             "input": {
               "value": "sha256:null",
               "dependencies": [
+                "sha256:lhome",
                 "sha256:lw0",
-                "sha256:ls",
                 "sha256:lrepo"
               ]
             },
@@ -938,37 +1341,6 @@
                   }
                 }
               }
-            }
-          }
-        }
-      },
-      {
-        "by": "self",
-        "what": {
-          "send": {
-            "key": "cs",
-            "to": {
-              "port": "construct"
-            },
-            "ref": "h-rconstruct",
-            "delivery": {
-              "value": "sha256:lcs",
-              "dependencies": [
-                "sha256:ls"
-              ]
-            },
-            "attach": {},
-            "result": {
-              "outcome": {
-                "ok": true,
-                "value": {
-                  "id": "sha256:ls"
-                },
-                "dependencies": []
-              },
-              "attach": {},
-              "derived": {},
-              "accepted": true
             }
           }
         }
@@ -1144,8 +1516,8 @@
             "delivery": {
               "value": "sha256:lspawn",
               "dependencies": [
+                "sha256:lhome",
                 "sha256:lw0",
-                "sha256:ls",
                 "sha256:lrepo"
               ]
             }
@@ -1237,7 +1609,7 @@
                 "h-rdone"
               ]
             },
-            "result": 5
+            "result": 4
           }
         }
       }
@@ -1252,7 +1624,7 @@
             "input": {
               "value": "sha256:lw0in",
               "dependencies": [
-                "sha256:ls",
+                "sha256:lhome",
                 "sha256:lrepo"
               ]
             },
@@ -1320,6 +1692,146 @@
         "what": {
           "send": {
             "key": "1",
+            "to": {
+              "port": "infer"
+            },
+            "ref": "h-w0infer",
+            "delivery": {
+              "value": "sha256:lw0infer",
+              "dependencies": [
+                "sha256:lhome"
+              ]
+            },
+            "attach": {},
+            "result": {
+              "outcome": {
+                "ok": true,
+                "value": {
+                  "interface": {
+                    "description": "改一处代码，交回总结与改过的 Bundle。",
+                    "signature": {
+                      "in": {
+                        "type": "object",
+                        "properties": {
+                          "task": {
+                            "type": "string"
+                          },
+                          "snapshot": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "task",
+                          "snapshot"
+                        ],
+                        "additionalProperties": false
+                      },
+                      "out": {
+                        "type": "object",
+                        "properties": {
+                          "summary": {
+                            "type": "string"
+                          },
+                          "snapshot": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "summary",
+                          "snapshot"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "provides": {},
+                    "requires": {
+                      "engine": {
+                        "$block": "model.generate"
+                      },
+                      "exec": {
+                        "$block": "directory.exec"
+                      }
+                    }
+                  }
+                },
+                "dependencies": []
+              },
+              "attach": {},
+              "derived": {},
+              "accepted": true
+            }
+          }
+        }
+      },
+      {
+        "by": "self",
+        "what": {
+          "send": {
+            "key": "2",
+            "to": {
+              "port": "pack"
+            },
+            "ref": "h-w0pack",
+            "delivery": {
+              "value": "sha256:lw0pack",
+              "dependencies": [
+                "sha256:lhome"
+              ]
+            },
+            "attach": {},
+            "result": {
+              "outcome": {
+                "ok": true,
+                "value": {
+                  "id": "sha256:ls"
+                },
+                "dependencies": [
+                  "sha256:ls"
+                ]
+              },
+              "attach": {},
+              "derived": {},
+              "accepted": true
+            }
+          }
+        }
+      },
+      {
+        "by": "self",
+        "what": {
+          "send": {
+            "key": "3",
+            "to": {
+              "port": "construct"
+            },
+            "ref": "h-w0construct",
+            "delivery": {
+              "value": "sha256:lw0construct",
+              "dependencies": [
+                "sha256:ls"
+              ]
+            },
+            "attach": {},
+            "result": {
+              "outcome": {
+                "ok": true,
+                "value": {
+                  "id": "sha256:ls"
+                },
+                "dependencies": []
+              },
+              "attach": {},
+              "derived": {},
+              "accepted": true
+            }
+          }
+        }
+      },
+      {
+        "by": "self",
+        "what": {
+          "send": {
+            "key": "4",
             "to": {
               "port": "instantiate"
             },
@@ -1401,7 +1913,7 @@
         "by": "self",
         "what": {
           "send": {
-            "key": "2",
+            "key": "5",
             "to": {
               "handle": "h-snotify"
             },
@@ -1463,7 +1975,7 @@
         "by": "self",
         "what": {
           "receive": {
-            "key": "3",
+            "key": "6",
             "filter": {
               "ports": [
                 "done"
@@ -1472,7 +1984,7 @@
                 "h-sdone"
               ]
             },
-            "result": 4
+            "result": 7
           }
         }
       },
@@ -1480,7 +1992,7 @@
         "by": "self",
         "what": {
           "send": {
-            "key": "4",
+            "key": "7",
             "to": {
               "port": "exec"
             },
@@ -1519,7 +2031,7 @@
         "by": "self",
         "what": {
           "send": {
-            "key": "5",
+            "key": "8",
             "to": {
               "port": "engine"
             },
@@ -1563,7 +2075,7 @@
         "by": "self",
         "what": {
           "send": {
-            "key": "6",
+            "key": "9",
             "to": {
               "port": "engine"
             },

@@ -14,4 +14,23 @@
 - `library.react`：`react(engine, tools, messages, system)`，模型与工具来回，没有调用时返回最后的文本。
 - 例子：`library.s` 是一个改代码的 Agent，`look(name="library.s", source=True)` 看它的全文，可以照抄。
 
+一个只问模型一句的 Agent，可以直接照抄：
+
+```python
+import croon
+from library.model import Generate
+
+
+def main(topic: str, engine: Generate) -> str:
+    """为一个主题写一句口号。
+
+    Args:
+        topic: 主题。
+    """
+    r = croon.send(engine, {"system": "只回答一句话", "messages": [{"role": "user", "text": topic}], "tools": []}).value
+    return r["text"]
+```
+
+用到 `croon.send` 就要 `import croon`；Port 类型（`Generate`）从 `library.model` 导入，参数名 `engine` 就是接线的名字。
+
 造好（`make`）就成了你的一个工具，直接调用；它交回目录的，结果里有 `name` 与 `diff`，满意再 `merge`。

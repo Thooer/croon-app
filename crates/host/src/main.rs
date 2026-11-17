@@ -2,6 +2,7 @@
 //! 用法：
 //!   croon-app run --config 配置 --repo 仓库 --out 结果目录 [--tools 清单] 任务
 //!   croon-app resume --config 配置 --out 结果目录
+//!   croon-app exec --config 配置 --source 源码文件 --input JSON [--snapshot 目录] --out 结果目录
 //! 参考：docs/Host/README.md（客户端）。
 
 use std::path::PathBuf;
@@ -9,16 +10,18 @@ use std::process::ExitCode;
 
 const USAGE: &str = "用法：
   croon-app run --config 配置 --repo 仓库 --out 结果目录 [--tools 清单] 任务
-  croon-app resume --config 配置 --out 结果目录";
+  croon-app resume --config 配置 --out 结果目录
+  croon-app exec --config 配置 --source 源码文件 --input JSON [--snapshot 目录] --out 结果目录";
 
 fn main() -> ExitCode {
     let args: Vec<String> = std::env::args().skip(1).collect();
     let command = args.first().map(String::as_str);
-    if !matches!(command, Some("run" | "resume")) {
+    if !matches!(command, Some("run" | "resume" | "exec")) {
         eprintln!("{USAGE}");
         return ExitCode::from(2);
     }
     let (mut config, mut repo, mut out, mut task, mut tools) = (None, None, None, None, None);
+    let (mut source, mut input) = (None, None);
     let mut rest = args[1..].iter();
     while let Some(arg) = rest.next() {
         match arg.as_str() {
@@ -26,6 +29,9 @@ fn main() -> ExitCode {
             "--repo" => repo = rest.next().map(PathBuf::from),
             "--out" => out = rest.next().map(PathBuf::from),
             "--tools" => tools = rest.next().map(PathBuf::from),
+            "--source" => source = rest.next().map(PathBuf::from),
+            "--input" => input = rest.next().cloned(),
+            "--snapshot" => repo = rest.next().map(PathBuf::from),
             _ if task.is_none() => task = Some(arg.clone()),
             _ => {
                 eprintln!("{USAGE}");
@@ -38,8 +44,8 @@ fn main() -> ExitCode {
         return ExitCode::from(2);
     };
     let resuming = command == Some("resume");
-    if resuming && (repo.is_some() || task.is_some() || tools.is_some()) {
-        eprintln!("resume 不收仓库、任务与清单：它们取自 Journal\n{USAGE}");
+    if resuming && (repo.is_some() || task.is_some() || tools.is_some() || source.is_some() || input.is_some()) {
+        eprintln!("resume 不收仓库、任务、源码与清单：它们取自 Journal\n{USAGE}");
         return ExitCode::from(2);
     }
     let assembly = match tools.map(|p| {
@@ -60,6 +66,13 @@ fn main() -> ExitCode {
     let result = host::Settings::load(&config).and_then(|settings| {
         if resuming {
             host::resume(&settings, assembly, &out)
+        } else if command == Some("exec") {
+            let (Some(source), Some(input)) = (source, input) else {
+                return Err(host::Error(USAGE.into()));
+            };
+            let source = std::fs::read_to_string(&source).map_err(|e| host::Error(format!("{}：{e}", source.display())))?;
+            let input = serde_json::from_str(&input).map_err(|e| host::Error(format!("--input：{e}")))?;
+            host::exec(&settings, assembly, &source, input, repo.as_deref(), &out)
         } else {
             let (Some(repo), Some(task)) = (repo, task) else {
                 return Err(host::Error(USAGE.into()));
@@ -70,7 +83,9 @@ fn main() -> ExitCode {
     match result {
         Ok(finished) => {
             println!("{}", finished.summary);
-            println!("结果：{}（{}）", out.display(), finished.snapshot);
+            if !finished.snapshot.is_empty() {
+                println!("结果：{}（{}）", out.display(), finished.snapshot);
+            }
             ExitCode::SUCCESS
         }
         Err(error) => {

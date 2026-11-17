@@ -7,28 +7,30 @@
         "type": "object",
         "description": "这次运行：宿主在诞生时记下，恢复时从 Journal 取回，不再读命令行与磁盘",
         "properties": {
-          "task": {
-            "type": "string",
-            "description": "交给被运行的 Definition 的任务"
-          },
           "definition": {
             "type": "string",
-            "description": "被运行的 Definition 的 Bundle ID，恢复时不用重新导入、重新推导"
+            "description": "被运行的 Definition 的 Bundle ID"
           },
-          "home": {
-            "type": "string",
-            "description": "Library 目录的 Bundle ID"
+          "input": {
+            "description": "交给它的输入值，形状是它的 Signature 的 in；目录字段已经填成导入后的 Bundle ID"
           },
-          "snapshot": {
+          "dependencies": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "输入用到的 Bundle，已排序去重；不含 Definition"
+          },
+          "directory": {
             "type": "string",
-            "description": "调用方交来的目录的 Bundle ID"
+            "description": "取回结果目录时看哪个字段：结束值里的这个字段是结果目录的 Bundle ID；空串是没有"
           }
         },
         "required": [
-          "task",
           "definition",
-          "home",
-          "snapshot"
+          "input",
+          "dependencies",
+          "directory"
         ],
         "additionalProperties": false
       },

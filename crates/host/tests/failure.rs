@@ -149,7 +149,7 @@ fn a_use_failure_ends_w0_with_a_failure_that_the_root_receives() {
     .err()
     .expect("W0 失败要报错");
     assert!(start.elapsed() < Duration::from_secs(60), "不能盲等");
-    assert!(error.0.contains("W0 失败"), "{error}");
+    assert!(error.0.contains("运行失败"), "{error}");
     assert!(error.0.contains("context too long"), "{error}");
 }
 

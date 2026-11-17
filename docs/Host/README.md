@@ -26,7 +26,8 @@
 
 调用方怎样与它沟通，由它的 Interface 决定，见 croon:docs/Kernel/Definition/README.md 的 Interface：
 
-- **输入**照 Signature 的 in：值从调用方给的 JSON 来；目录字段由调用方指定磁盘上的目录，宿主导入后把 Bundle ID 填进去，见 ../Library/Runtime.md 待定「目录字段的声明」；Library 目录由宿主填。
+- **输入**照 Signature 的 in：值从调用方给的 JSON 来；目录字段由调用方指定磁盘上的目录，宿主导入后把 Bundle ID 填进去，见 ../Library/Runtime.md 待定「目录字段的声明」；Library 目录由宿主填。W0 的输入是任务，是它的 Signature 的一种，不是宿主的约定。
+- **命令行**：`croon-app exec --config 配置 --source 源码文件 --input 输入的 JSON [--snapshot 目录] [--out 结果目录]` 构造并运行一份源码，不经 W0。它有自己的 Kernel 目录，按「运行」的规则恢复，输入记在 root 的 Signature 里。实验的独立验收用它：从录像里取出模型造出来的源码，在检验方自己的输入上再跑一遍，看结果值。
 - **结果**照 Signature 的 out：结束值交回调用方，其中的目录字段是候选，见「结果与采用」。
 - **接线**：它的 Required port 按名字从 root entry 手里取；root entry 没有的，宿主在实例化之前就拒绝。
 

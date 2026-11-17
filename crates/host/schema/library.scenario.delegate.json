@@ -1358,6 +1358,19 @@
     },
     "sha256:lw0construct": {
       "definition": "sha256:ls"
+    },
+    "sha256:lrootin": {
+      "definition": "sha256:lw0",
+      "input": {
+        "task": "修好 a.py",
+        "home": "sha256:lhome",
+        "snapshot": "sha256:lrepo"
+      },
+      "dependencies": [
+        "sha256:lhome",
+        "sha256:lrepo"
+      ],
+      "directory": "snapshot"
     }
   },
   "journals": {
@@ -1368,7 +1381,7 @@
           "birth": {
             "definition": "sha256:lroot",
             "input": {
-              "value": "sha256:null",
+              "value": "sha256:lrootin",
               "dependencies": [
                 "sha256:lhome",
                 "sha256:lw0",

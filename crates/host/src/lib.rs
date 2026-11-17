@@ -308,8 +308,20 @@ impl Client<'_> {
     }
 }
 
-/// 开始一次运行：按装配的五步跑完一个任务，结果物化到新的空目录 `out`。这个 Kernel 目录里已经有 root entry 时
-/// 报错：续做用 [`resume`]。
+/// 一次运行要做的事：运行哪一份 Definition，输入是什么。恢复时整份取自 Journal。
+struct Job {
+    /// 被运行的 Definition 的 Bundle ID。
+    definition: String,
+    /// 交给它的输入，目录字段已经填成导入后的 Bundle ID。
+    input: Json,
+    /// 输入用到的 Bundle，不含 Definition。
+    dependencies: Vec<String>,
+    /// 结束值里哪个字段是结果目录，空串是没有。
+    directory: String,
+}
+
+/// 开始一次运行：W0 收一个任务，改调用方给的仓库，结果目录物化到新的或空的 `out`。这个 Kernel 目录里已经有
+/// root entry 时报错：续做用 [`resume`]。
 pub fn run(
     settings: &Settings,
     assembly: Assembly,
@@ -317,26 +329,46 @@ pub fn run(
     task: &str,
     out: &Path,
 ) -> Result<Finished> {
-    drive(settings, assembly, Some((repo, task)), out)
+    let start = Start::W0 {
+        repo: repo.to_owned(),
+        task: task.to_owned(),
+    };
+    drive(settings, assembly, Some(start), out)
 }
 
-/// 继续一次被中断的运行：任务、导入的目录与工具清单都取自 Journal，不读命令行与磁盘。已经结束的运行得到同样的结果。
+/// 构造并运行一份 Lang0 源码，不经 W0：输入照它的 Signature，`input` 是 JSON 对象；Signature 的 in 里有
+/// `snapshot` 时，`repo` 是交给它的目录。结束值里有 `snapshot` 时物化到 `out`；没有就不建目录。
+pub fn exec(
+    settings: &Settings,
+    assembly: Assembly,
+    source: &str,
+    input: Json,
+    repo: Option<&Path>,
+    out: &Path,
+) -> Result<Finished> {
+    let start = Start::Source {
+        source: source.to_owned(),
+        input,
+        repo: repo.map(Path::to_owned),
+    };
+    drive(settings, assembly, Some(start), out)
+}
+
+/// 继续一次被中断的运行：运行什么、输入是什么、导入的目录与工具清单都取自 Journal，不读命令行与磁盘。
+/// 已经结束的运行得到同样的结果。
 pub fn resume(settings: &Settings, assembly: Assembly, out: &Path) -> Result<Finished> {
     drive(settings, assembly, None, out)
 }
 
-/// 这次运行：root entry 诞生时记下的输入，恢复时从 Journal 取回。
-struct Job {
-    task: String,
-    w0: String,
-    home: String,
-    snapshot: String,
+enum Start {
+    W0 { repo: PathBuf, task: String },
+    Source { source: String, input: Json, repo: Option<PathBuf> },
 }
 
 fn drive(
     settings: &Settings,
     assembly: Assembly,
-    start: Option<(&Path, &str)>,
+    start: Option<Start>,
     out: &Path,
 ) -> Result<Finished> {
     let resuming = start.is_none();
@@ -378,16 +410,41 @@ fn drive(
             let job = recorded(&kernel, &root)?;
             (root, job)
         }
-        (None, Some((repo, task))) => {
+        (None, Some(start)) => {
             let content = Content::from_inputs(kernel.store().clone(), &[], BUDGETS)?;
             let home = home_bundle(&content, settings.limits(), assembly.tools.as_ref())?;
-            let w0 = definition(&content, library::source("w0.py"), &home)?;
-            let snapshot = directory::import(&content, repo, settings.limits())?;
-            let job = Job {
-                task: task.to_owned(),
-                w0,
-                home,
-                snapshot,
+            let job = match start {
+                Start::W0 { repo, task } => {
+                    let definition = definition(&content, library::source("w0.py"), &home)?;
+                    let snapshot = directory::import(&content, &repo, settings.limits())?;
+                    Job {
+                        definition,
+                        input: json!({"task": task, "home": home, "snapshot": snapshot}),
+                        dependencies: sorted(vec![home, snapshot]),
+                        directory: "snapshot".into(),
+                    }
+                }
+                Start::Source { source, input, repo } => {
+                    let definition = definition(&content, &source, &home)?;
+                    let interface = croon_interface(&content, &definition)?;
+                    let mut input = input;
+                    let mut dependencies = vec![home.clone()];
+                    let takes = interface["signature"]["in"]["properties"].get("snapshot").is_some();
+                    if let Some(repo) = repo.filter(|_| takes) {
+                        let snapshot = directory::import(&content, &repo, settings.limits())?;
+                        input["snapshot"] = json!(snapshot);
+                        dependencies.push(snapshot);
+                    } else if takes {
+                        return Err(Error("这份源码要 snapshot：用 --snapshot 给一个目录".into()));
+                    }
+                    let gives = interface["signature"]["out"]["properties"].get("snapshot").is_some();
+                    Job {
+                        definition,
+                        input,
+                        dependencies: sorted(dependencies),
+                        directory: if gives { "snapshot".into() } else { String::new() },
+                    }
+                }
             };
             let root_definition = schema("host.root");
             let raw = content.put_json(&root_definition)?;
@@ -409,25 +466,20 @@ fn drive(
                 "infer".into(),
                 json!({"host": inferrer.id(), "spec": requires["infer"]}),
             );
-            let input = json!({
-                "value": {"task": job.task, "definition": job.w0, "home": job.home, "snapshot": job.snapshot},
-                "dependencies": sorted(vec![job.w0.clone(), job.home.clone(), job.snapshot.clone()]),
+            let birth_input = json!({
+                "value": {"definition": job.definition, "input": job.input, "dependencies": job.dependencies, "directory": job.directory},
+                "dependencies": sorted([vec![job.definition.clone()], job.dependencies.clone()].concat()),
             });
             let root = kernel.create_root(
                 &bundle,
-                &input,
+                &birth_input,
                 &json!({"back": "port/done"}),
                 &json!({"sources": sources}),
             )?;
             (root, job)
         }
     };
-    let Job {
-        task: _,
-        w0,
-        home,
-        snapshot,
-    } = &job;
+    let definition = job.definition.clone();
     for (port, provider) in [("engine", model), ("exec", exec), ("infer", inferrer)] {
         let handle = kernel.index().journals[root.as_str()].birth()["wire"][port]
             .as_str()
@@ -450,21 +502,35 @@ fn drive(
     client.send(
         "construct-w0",
         json!({"port": "construct"}),
-        json!({"definition": w0}),
-        vec![w0.clone()],
+        json!({"definition": definition}),
+        vec![definition.clone()],
         json!({}),
     )?;
+    // 接线按被运行的 Definition 自己声明的 Required port 取，root entry 手里没有的当场报错：
+    // 沟通由 Definition 的 Interface 决定，宿主不替它多给，也不少给。
+    let interface = croon_interface(&Content::from_inputs(client.kernel.store().clone(), &[definition.clone()], BUDGETS)?, &definition)?;
+    let mut attach = serde_json::Map::new();
+    let mut own = serde_json::Map::new();
+    for port in interface["requires"].as_object().into_iter().flatten().map(|(k, _)| k) {
+        if port == "back" {
+            own.insert("back".into(), json!("port/done"));
+        } else if ["engine", "exec", "infer", "instantiate", "pack", "construct"].contains(&port.as_str()) {
+            attach.insert(port.clone(), json!({"port": port}));
+        } else {
+            return Err(Error(format!("要运行的 Definition 要 {port}，宿主给不了")));
+        }
+    }
     let spawned = client.send(
         "spawn",
         json!({"port": "instantiate"}),
         json!({
-            "definition": w0,
-            "input": {"value": {"task": job.task, "home": home, "snapshot": snapshot}, "dependencies": sorted(vec![home.clone(), snapshot.clone()])},
+            "definition": definition,
+            "input": {"value": job.input, "dependencies": job.dependencies},
             "seats": {},
-            "self": {"back": "port/done"}
+            "self": own
         }),
-        vec![w0.clone(), home.clone(), snapshot.clone()],
-        json!({"engine": {"port": "engine"}, "exec": {"port": "exec"}, "instantiate": {"port": "instantiate"}, "pack": {"port": "pack"}, "construct": {"port": "construct"}, "infer": {"port": "infer"}}),
+        sorted([vec![definition.clone()], job.dependencies.clone()].concat()),
+        Json::Object(attach),
     )?;
     let notify = spawned["attach"]["notify"]["handle"]
         .as_str()
@@ -485,12 +551,23 @@ fn drive(
         client.submit(&json!({"key": "take", "receive": {"ports": ["done"], "via": [done]}}))?;
     let outcome = &taken["arrival"]["delivery"]["value"];
     if outcome["ok"] != true {
-        return Err(Error(format!("W0 失败：{}", outcome["error"])));
+        return Err(Error(format!("运行失败：{}", outcome["error"])));
     }
+    let value = &outcome["value"];
     let finished = Finished {
-        summary: text(&outcome["value"], "summary")?,
-        snapshot: text(&outcome["value"], "snapshot")?,
+        summary: match value.get("summary") {
+            Some(summary) => text(value, "summary").map_err(|_| Error(format!("summary 要是字符串：{summary}")))?,
+            None => value.to_string(),
+        },
+        snapshot: if job.directory.is_empty() {
+            String::new()
+        } else {
+            text(value, &job.directory)?
+        },
     };
+    if finished.snapshot.is_empty() {
+        return Ok(finished);
+    }
 
     if out.exists() {
         // 恢复时上次可能已经建好了结果目录：空的可以接着用，有东西的不覆盖。
@@ -521,11 +598,27 @@ fn recorded(kernel: &Kernel, root: &str) -> Result<Job> {
         .map_err(|e| Error(e.to_string()))?
         .ok_or_else(|| Error(format!("内容库里没有 root 的输入 {id}")))?;
     Ok(Job {
-        task: text(&value, "task")?,
-        w0: text(&value, "definition")?,
-        home: text(&value, "home")?,
-        snapshot: text(&value, "snapshot")?,
+        definition: text(&value, "definition")?,
+        input: value["input"].clone(),
+        dependencies: value["dependencies"]
+            .as_array()
+            .into_iter()
+            .flatten()
+            .filter_map(|v| v.as_str().map(str::to_owned))
+            .collect(),
+        directory: value["directory"].as_str().unwrap_or_default().to_owned(),
     })
+}
+
+/// 一份 Definition Bundle 的 Interface。
+fn croon_interface(content: &Content, definition: &str) -> Result<Json> {
+    let bundle = content
+        .bundle(definition)?
+        .ok_or_else(|| Error(format!("读不到 Definition {definition}")))?;
+    let body = content
+        .json(&bundle.content)?
+        .ok_or_else(|| Error(format!("读不到 Definition 的内容 {}", bundle.content)))?;
+    Ok(body["interface"].clone())
 }
 
 /// 记录里的 `at`：UTC 的 RFC 3339。

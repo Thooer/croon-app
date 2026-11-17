@@ -1,7 +1,7 @@
-//! Directory 的 Port block，编进本 crate。
+//! Directory 的 block：文件执行 Port 的形状在 schema/ 下，名字就是出处。
 //! 参考：docs/Directory/README.md（文件执行）。
 
-pub use croon_eval::blocks::{Block, json_in};
+use croon_eval::blocks::{Block, expanded};
 
 pub static BLOCKS: &[Block] = &[Block {
     name: "directory.exec",
@@ -12,5 +12,5 @@ pub static BLOCKS: &[Block] = &[Block {
 }];
 
 pub fn json(name: &str) -> serde_json::Value {
-    json_in(BLOCKS, name)
+    expanded(&[BLOCKS], name)
 }

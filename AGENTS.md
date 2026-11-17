@@ -19,7 +19,7 @@ croon-app 是建立在 croon 与 croon-lang0 之上的完整应用：模型适�
 | docs/Library/Runtime.md | 运行环境、工具调用、交办 |
 | docs/Library/Organization.md | 组织与历史 |
 | docs/Library/Presets.md | 预置 Charter 与 Application |
-| docs/Library/Scenarios/ | Library 场景的预期：每个场景一个文件、一个 json block，schema/ 下是它的展开副本 |
+| docs/Library/Scenarios/ | Library 场景检验什么：每个场景一个文件；预期本身是 block `library.scenario.<名字>` |
 | docs/Research/ | 应用侧研究线索 |
 | docs/Draft.md | 用户草稿，不是设计；AI 只在用户让读时读 |
 
@@ -52,8 +52,8 @@ croon-app 是建立在 croon 与 croon-lang0 之上的完整应用：模型适�
 - 一个事实只有一处权威。别处要用，引用它的名字，不复写。同一件事写了两处，删掉信息更少的那处。
 - 理由跟着决策写：改决策时理由一起改。research/ 只放不绑定某个决策的内容。
 - 例子不承担规格：形状只定义一次，例子只展示用法。
-- 形状以 `crates/*/schema/*.json` 为权威，代码用 `include_str!` 取用，不手写第二份；内部实现只写在代码里，文档不写。写完代码，检查两边的重叠：形状重复的，改成 schema/ 下的文件；只关乎实现的，从文档删掉；两边都要的，定一处作权威，另一处引用它的名字。
-- 测试的预期能写成机器读得懂的规格（如对 Directory 或执行的断言）的，写在文档里，代码读它；写不成的放在代码一侧，不在文档里再写一遍。
+- 形状以 block 为权威，见「取用」；代码取用它，文档按名字引用，都不手写第二份。内部实现只写在代码里，文档不写。写完代码，检查两边的重叠：形状重复的，改成 block；只关乎实现的，从文档删掉；两边都要的，定一处作权威，另一处引用它的名字。
+- 测试的预期能写成机器读得懂的规格（如场景的 Journal、对 Directory 或执行的断言）的，写成 block，代码读它，文档写它检验什么；写不成的放在测试代码里，不在文档里再写一遍。
 - **公开面的义务写在 crate 头部**：一个 crate 的 `//!` 头部写消费者实现它之前必须知道、签名里看不出来的东西——要做出哪些决定、弄错会怎样失败、被保证什么。这些义务以头部为唯一权威，docs 不复述；理由与场景留在 docs，头部末尾只指过去。改 trait 或公开函数的提交，同一次里把头部一起看。头部指路时的目标必须真的含那份理由；指不到就补 docs，不要补一份义务。
 - **语义集中**：同一个意思只用一个概念说。一串机制在几处各拼一遍，就是缺一个概念：给它一个名字与一处权威，由别处引用它，或说明它是哪个已有概念的用法。
 
@@ -74,13 +74,14 @@ croon-app 是建立在 croon 与 croon-lang0 之上的完整应用：模型适�
 
 ### 取用
 
-- 代码取用的 JSON 形状放在 `crates/*/schema/*.json`，用 `include_str!` 编进来。名字用 ASCII 小写字母、数字与点，全部文档内唯一。
-- 文档里的 fence block 带名字时（语言标签后跟空格和名字），名字是这份形状的权威标识；schema/ 文件是已展开的副本，两者同步。
-- block 只在定义它的地方写一次。另一个 JSON block 要用它的形状，写 `{"$block": "名字"}` 或 `{"$block": "名字#/JSON Pointer"}`；schema/ 文件里已展开，代码直接取用。展开时宿主的 `$ref` 不变；展开出的内容里，`$ref` 所属那份 Schema 的根严格在片段内部的，连同那个根上的 `$defs` 原样保留；其余的按它在原 block 里的意思解开，`$defs` 删掉；与 `$block` 并列的键覆盖展开出的同名键。
+- 代码取用的 JSON 形状叫 block，各有一个名字：ASCII 小写字母、数字与点，连同上游的在内唯一。block 只在代码一侧写一次，是那份形状的唯一出处；文档按名字引用，不内嵌副本。
+- 大的 block 在 `crates/*/schema/<名字>.json` 各成一个文件，用 `include_str!` 编进来；只有几行的直接写在那个 crate 的 `src/blocks.rs` 里。名字就是去哪找它。
+- 一份 block 要用另一份的形状，写 `{"$block": "名字"}` 或 `{"$block": "名字#/JSON Pointer"}`，可以指向上游 crate 的 block。文件里留着 `$block`，取用时由各 crate 的 `blocks::json` 经 `croon_eval::blocks::expanded` 展开，展开规则以它的文档为准。
+- 改形状时，block 与说明它的文档在同一次提交里改。
 
 ### 检查
 
-代码使用的 JSON 形状以 `crates/*/schema/*.json` 为权威，并由各 crate 通过 `include_str!` 编译进来。测试直接验证保证和失败原因；不设文档行数、token、提交钩子或文档引用的自动检查。
+代码使用的 JSON 形状以 block 为权威，见「取用」。测试直接验证保证和失败原因；不设文档行数、token、提交钩子或文档引用的自动检查。
 
 ### 文件边界
 

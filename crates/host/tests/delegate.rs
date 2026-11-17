@@ -1,4 +1,4 @@
-//! Delegate 场景：预期见 docs/Library/Scenarios/Delegate.md。Library 先生成进临时根目录，
+//! Delegate 场景：预期是 block `library.scenario.delegate`，它检验什么见 docs/Library/Scenarios/Delegate.md。Library 先生成进临时根目录，
 //! 生成模块不进 Git，`$tree: library` 扫到的仍是真实检出提供的那些文件。
 
 use kernel::host::{Channel, Language};

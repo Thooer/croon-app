@@ -5,7 +5,7 @@
 - library/ 与生成模块都取自本仓库：生成模块由 `cargo run -p host --example generate_library` 写进临时目录。
 - croon 的 CPython 参考实现取自并排放置的 croon-lang0（crates/lang0/cpython/croon.py），语义只有那一个出处。
 
-预期见 docs/Library/Scenarios/Delegate.md 的 library.scenario.delegate；Kernel 与 Lang0 是被测实现，这里不用它们。
+预期是 crates/host/schema/library.scenario.delegate.json，它检验什么见 docs/Library/Scenarios/Delegate.md；Kernel 与 Lang0 是被测实现，这里不用它们。
 一致时打印 ok；不一致时打印差异并以非零退出。
 """
 import importlib

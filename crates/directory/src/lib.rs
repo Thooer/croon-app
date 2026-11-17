@@ -12,6 +12,7 @@ mod tests;
 pub use filesystem::{Limits, import, materialize, read};
 
 mod blocks;
+pub use blocks::BLOCKS;
 pub fn schema(name: &str) -> serde_json::Value {
     blocks::json(name)
 }

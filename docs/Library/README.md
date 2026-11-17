@@ -9,7 +9,7 @@ Library 是随框架预置的一批 Definition 与做法，用 Lang0 与 Kernel 
 - Runtime.md：ReAct、工具、工作区、交办、Middleware——一个主体怎样做事，从外面能在哪三处插入。
 - Organization.md：共享与保密、连续的地址、Handoff、历史分支与合并——Principal 怎样组织多个主体，保持连续与历史。
 - Presets.md：预置 Charter 的规则与 Application——Library 提供哪些成品，装它们时守什么。
-- Scenarios/：Library 的场景预期，每个场景一个文件、一个 json block；测试拿它驱动真的 Kernel 与 Lang0。
+- Scenarios/：Library 的场景检验什么，每个场景一个文件；预期是对应的 block `library.scenario.<名字>`，测试拿它驱动真的 Kernel 与 Lang0。
 
 ## 原则
 

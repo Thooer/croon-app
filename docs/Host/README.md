@@ -22,47 +22,7 @@
 
 一次运行装配的全部东西写在一份配置文件里，由启动入口显式指定；宿主不从环境变量或当前目录找配置。路径都是绝对路径。
 
-```json host.config
-{
-  "description": "宿主配置：一个系统的名字、Kernel 目录、模型来源与文件执行的装配",
-  "type": "object",
-  "properties": {
-    "system": {"type": "string", "description": "系统名；恢复身份由它派生"},
-    "kernel": {"type": "string", "description": "Kernel 目录：记录库与内容库"},
-    "model": {
-      "anyOf": [
-        {"type": "object", "properties": {"provider": {"type": "string", "description": "符合 model.provider 的配置文件"}}, "required": ["provider"], "additionalProperties": false},
-        {"type": "object", "properties": {"provider": {"type": "string"}, "record": {"type": "string", "description": "录像写到这里，不能已经存在"}}, "required": ["provider", "record"], "additionalProperties": false},
-        {"type": "object", "properties": {"replay": {"type": "string", "description": "要回放的录像"}}, "required": ["replay"], "additionalProperties": false}
-      ]
-    },
-    "directory": {
-      "type": "object",
-      "properties": {
-        "state": {"type": "string", "description": "提供者的私有 state 目录"},
-        "docker": {"type": "string"},
-        "python": {"type": "string"},
-        "image": {"type": "string", "description": "任务镜像"},
-        "collector_image": {"type": "string", "description": "可信采集镜像，要有 python3"},
-        "platform": {"type": "string"},
-        "cpus": {"type": "string"},
-        "memory_bytes": {"type": "integer"},
-        "work_bytes": {"type": "integer"},
-        "temporary_bytes": {"type": "integer"},
-        "pids": {"type": "integer"},
-        "output_bytes": {"type": "integer"},
-        "nodes": {"type": "integer"},
-        "archive_bytes": {"type": "integer"},
-        "cleanup_timeout_seconds": {"type": "integer"}
-      },
-      "required": ["state", "docker", "python", "image", "collector_image", "platform", "cpus", "memory_bytes", "work_bytes", "temporary_bytes", "pids", "output_bytes", "nodes", "archive_bytes", "cleanup_timeout_seconds"],
-      "additionalProperties": false
-    }
-  },
-  "required": ["system", "kernel", "model", "directory"],
-  "additionalProperties": false
-}
-```
+形状是 `host.config`。
 
 恢复身份是 `<系统名>/model`、`<系统名>/directory` 与 `<系统名>/infer`，写进 root entry 的 binding。文件执行的容器名与 state 锁由恢复身份派生，所以一台机器上的两个系统要用不同的名字；同一个名字必须始终配同一个 Kernel 目录与 state 目录。录制与回放沿用模型的恢复身份：换录像不换系统名。录制中断后不续录：录像文件已存在时录制器拒绝打开；要重录，换一盘新录像，同时换一个新的系统名与 Kernel 目录。原 Kernel 目录里已提交的结果不会再请求模型，新录像就缺了那几条，之后回放对不上。
 
@@ -86,29 +46,7 @@
 
 root entry 接上 `infer`，运行中的主体才能把写好的源码变成构造得了的 Definition：只接 `pack` 与 `construct` 时，模型得手写 Interface。
 
-Definition 是本仓库自己的，不借 croon 场景里的共享 root：
-
-```json host.root
-{
-  "evaluator": "external",
-  "interface": {
-    "description": "root entry：根在系统内交任务、取结果",
-    "signature": {"in": {}, "out": {}},
-    "provides": {
-      "done": {"description": "收结束状态", "in": {"$block": "definition.outcome"}, "attach": {"additionalProperties": false}}
-    },
-    "requires": {
-      "pack": {"$block": "reference.kernel#/pack"},
-      "construct": {"$block": "reference.kernel#/construct"},
-      "instantiate": {"$block": "reference.kernel#/instantiate"},
-      "engine": {"$block": "model.generate"},
-      "exec": {"$block": "directory.exec"},
-      "infer": {"$block": "definition.infer"},
-      "back": {"$block": "host.root#/interface/provides/done"}
-    }
-  }
-}
-```
+Definition 是本仓库自己的 `host.root`，不借 croon 场景里的共享 root；各 Port 的规格引用上表来源的 block，不复写。
 
 Required port 在诞生时写定，运行中再接新东西是 Kernel 的待定，所以 root entry 的 Interface 就是这个系统能用的全部外部能力。第一版只接一个模型；要异质检验时换一份声明多个模型的 root Definition，是增量。root entry 不接自己的 Look，也不收别的到达：它只交任务、等结束。
 
@@ -116,38 +54,7 @@ Required port 在诞生时写定，运行中再接新东西是 Kernel 的待定�
 
 `definition.infer` 从一份 Definition 草稿的 body 推出 Interface：纯计算，没有世界效果，通道是可丢弃的。它不建立构造事实：construct 会把推出的 Interface 与 Definition 里写的按规范文本比对，推错也过不了构造，Kernel 不把宿主的推导当成事实。
 
-```json definition.infer
-{
-  "description": "从 Definition 草稿的 body 推出 Interface；纯计算，不建立构造事实",
-  "in": {
-    "type": "object",
-    "properties": {
-      "language": {"enum": ["lang0@1"]},
-      "body": {
-        "type": "object",
-        "properties": {
-          "source": {"type": "string"},
-          "modules": {"type": "string", "description": "模块目录的 Tree ID，要在本次交付的依赖里"}
-        },
-        "required": ["source"],
-        "additionalProperties": false
-      }
-    },
-    "required": ["language", "body"],
-    "additionalProperties": false
-  },
-  "attach": {"additionalProperties": false},
-  "out": {
-    "value": {
-      "type": "object",
-      "properties": {"interface": {"type": "object"}},
-      "required": ["interface"],
-      "additionalProperties": false
-    },
-    "attach": {"additionalProperties": false}
-  }
-}
-```
+形状是 `definition.infer`。
 
 写好的 Interface 不交给模型手写：它是 `main` 签名的派生物，手写就是同一个事实的第二份，要逐字对上 docstring 的 `Args:`、required 的顺序与 Port spec 的全文，写错一点就构造不了。推导只有宿主做得到，`lang0::interface` 是 Rust 的公开函数，body 里取不到。所以运行中构造主体时，模型只写源码，Interface 由这个 Port 算。
 

@@ -2,6 +2,7 @@
 //! 参考：docs/Model/README.md（宿主适配）。
 
 mod blocks;
+pub use blocks::BLOCKS;
 mod cassette;
 
 pub use cassette::{Recorder, Replayer};

@@ -14,34 +14,7 @@ Tree 的定义见 croon:docs/Tree.md「Tree」。本部分只定义使用 Tree �
 
 每次请求给出初始快照及只读挂载，全部在这次交付闭包内。独立可写副本挂在 /work，只读输入在 /mnt/<名字>；不继承上次执行留下的可变文件。运行中快照不变，结果只交付新产物。
 
-```json directory.exec
-{
-  "description":"从显式快照建立独立环境，运行命令，交付稳定产物；不自动采用结果",
-  "in":{
-    "type":"object",
-    "properties":{
-      "snapshot":{"type":"string"},
-      "mounts":{"type":"object","additionalProperties":{"type":"string"}},
-      "argv":{"type":"array","items":{"type":"string"}},
-      "stdin":{"type":"string"},
-      "timeout":{"type":"integer","description":"秒，正数，至多 600"}
-    },
-    "required":["snapshot","mounts","argv","stdin","timeout"],"additionalProperties":false
-  },
-  "attach":{"additionalProperties":false},
-  "out":{
-    "value":{
-      "type":"object",
-      "properties":{
-        "exit":{"type":"integer"},"stdout":{"type":"string"},"stderr":{"type":"string"},
-        "timed_out":{"type":"boolean"},"truncated":{"type":"boolean"},"snapshot":{"type":"string"}
-      },
-      "required":["exit","stdout","stderr","timed_out","truncated","snapshot"],"additionalProperties":false
-    },
-    "attach":{"additionalProperties":false}
-  }
-}
-```
+形状是 `directory.exec`。
 
 argv 非空，timeout 在上界内，挂载名字遵循 Tree 名字规则。非零退出和超时都在业务结果里表达，仍交付产物；无法取得稳定产物是宿主故障，保持原执行身份等待收齐，不伪造无变化。输出字节按装配的上限截断并以 UTF-8 有损转换成文本，truncated 如实报告；截断上限属于服务装配。
 

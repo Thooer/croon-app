@@ -13,20 +13,20 @@
 一次运行按顺序做五件事：
 
 1. 打开 Kernel：Language 只装 `lang0@1`；宿主 Port 按恢复身份装上模型（`model.generate`）、文件执行（`directory.exec`）与推导（`definition.infer`）。凭据只在宿主配置与提供者里，不进 Definition、输入或 Journal。
-2. 导入：家目录，即 App 的包与磁盘上用户的包按包名合成一份目录 Bundle，见 ../Library/Packages.md「两层」；以及调用方交来的目录，经 Directory 的导入整份成为目录 Bundle，.git 与被忽略的文件都在内：并入要从候选里的仓库取提交。只想交出一部分的，先准备好那个目录。
+2. 导入：Library 目录（配置里给路径，生成模块在这时放进去），见 ../Library/Packages.md「目录与留存」；以及调用方交来的目录，经 Directory 的导入整份成为目录 Bundle，.git 与被忽略的文件都在内：并入要从候选里的仓库取提交。只想交出一部分的，先准备好那个目录。
 3. 创建 root entry，按「root entry」的 Interface 与 binding 接线。
-4. 作为客户端驱动 root entry：构造要运行的 Definition，实例化它，输入照它的 Signature，见「运行哪一个 Definition」；按它的 Required port 附带 root entry 手里的同名 Port，向它的 Notify 登记并附带接到 done 的 back，按 via 取结束结果。它运行中要用的别的 Definition 都从家目录载入，宿主不预先构造。
+4. 作为客户端驱动 root entry：构造要运行的 Definition，实例化它，输入照它的 Signature，见「运行哪一个 Definition」；按它的 Required port 附带 root entry 手里的同名 Port，向它的 Notify 登记并附带接到 done 的 back，按 via 取结束结果。它运行中要用的别的 Definition 都从 Library 目录载入，宿主不预先构造。
 5. 交回结果，见「结果与采用」。
 
-**恢复时输入取自 Journal。** 同一个 Kernel 目录再跑一次是恢复：root entry 已经存在时，宿主不重新导入家目录与调用方的目录，而用 Journal 里这次运行记下的那几份 Bundle。磁盘在两次运行之间会变，被写回过，或被用户改过，重新导入就会报出不同的 Atom，成了重放分歧。
+**恢复时输入取自 Journal。** 同一个 Kernel 目录再跑一次是恢复：root entry 已经存在时，宿主不重新导入 Library 目录与调用方的目录，而用 Journal 里这次运行记下的那几份 Bundle。磁盘在两次运行之间会变，被采用过，或被用户改过，重新导入就会报出不同的 Atom，成了重放分歧。
 
 ## 运行哪一个 Definition
 
-宿主运行的是一个 Definition，不限于 W0。它按包名从家目录找，或按路径读源码；不指定时运行 W0，它是用户的手，见 ../Library/Presets.md「预置给谁」。
+宿主运行的是一个 Definition，不限于 W0。它按包名从 Library 目录找，或按路径读源码；不指定时运行 W0，它是用户的手，见 ../Library/Presets.md「预置给谁」。
 
 调用方怎样与它沟通，由它的 Interface 决定，见 croon:docs/Kernel/Definition/README.md 的 Interface：
 
-- **输入**照 Signature 的 in：值从调用方给的 JSON 来；目录字段由调用方指定磁盘上的目录，宿主导入后把 Bundle ID 填进去，见 ../Library/Runtime.md 待定「目录字段的声明」；家目录由宿主填。
+- **输入**照 Signature 的 in：值从调用方给的 JSON 来；目录字段由调用方指定磁盘上的目录，宿主导入后把 Bundle ID 填进去，见 ../Library/Runtime.md 待定「目录字段的声明」；Library 目录由宿主填。
 - **结果**照 Signature 的 out：结束值交回调用方，其中的目录字段是候选，见「结果与采用」。
 - **接线**：它的 Required port 按名字从 root entry 手里取；root entry 没有的，宿主在实例化之前就拒绝。
 
@@ -36,15 +36,15 @@
 
 交回的目录是候选，采用由接收方决定，见 croon:docs/Kernel/Instance.md「委托」。调用 App 的一方是这次运行的根，交来的目录是它的工作状态，所以 App 不改它：
 
-- **任务目录默认只交回**：结束值、相对导入时的 diff，以及结果目录。
-- **采用是调用方的另一步**：以导入时的 Bundle 为基准，与磁盘上的当前内容、交回的候选三方合并，写回那个目录。调用方在运行期间的改动与交回的改动都保留；有冲突时列出路径，目录不动，候选另存。`.git` 不写回：在 /work 里做的提交不并进调用方的仓库，改动以未提交的形式出现在工作树里，由调用方审阅再提交；三方合并 .git 的内部文件没有意义。人在命令行上可以一步做完运行与采用。
-- **家目录默认采用**：机制相同，只写回用户那一层。家目录是根自己的东西，在配置里给一次、每次运行都带上，采用它是根预先定好的策略；任务目录是调用方这一次借给 App 的，两者归属不同，默认就不同。
+- **默认只交回**：结束值，以及每个导入的目录（任务目录、Library 目录）相对导入时的 diff 与结果目录。
+- **采用是调用方的另一步**，任务目录与 Library 目录规则相同：以导入时的 Bundle 为基准，与磁盘上的当前内容、交回的候选三方合并，写回那个目录。调用方在运行期间的改动与交回的改动都保留；有冲突时列出路径，目录不动，候选另存。`.git` 不写回：在 /work 里做的提交不并进调用方的仓库，改动以未提交的形式出现在工作树里，由调用方审阅再提交；三方合并 .git 的内部文件没有意义。人在命令行上可以一步做完运行与采用。
+- **Library 目录的留存就是采用它**：运行中装的包、造的主体不采用就随这次运行结束。不为它另设默认，一条规则，没有特例。
 
 几次运行同时结束时，各自按自己的导入基准三方合并写回，冲突照常报出。
 
 ## 配置
 
-一次运行装配的全部东西写在一份配置文件里，由启动入口显式指定；宿主不从环境变量或当前目录找配置。路径都是绝对路径。家目录的路径也在配置里。
+一次运行装配的全部东西写在一份配置文件里，由启动入口显式指定；宿主不从环境变量或当前目录找配置。路径都是绝对路径。Library 目录的路径也在配置里。
 
 形状是 `host.config`。
 
@@ -103,8 +103,8 @@ Required port 在诞生时写定，运行中再接新东西是 Kernel 的待定�
 
 | 档 | 运行的 Definition | 宿主补齐 |
 |---|---|---|
-| Application | 不指定，即 W0 | App 的包与家目录 |
-| Library | 用户自己用 Lang0 写、import Library 的包 | App 的包与家目录 |
+| Application | 不指定，即 W0 | Library 目录 |
+| Library | 用户自己用 Lang0 写、import Library 的包 | Library 目录 |
 | Kernel | 自己的 Definition 或 Charter | 只有 Language 与宿主 Port |
 
 三档用同一份 root entry 与同一套宿主 Port，不同的只是第 4 步交给 construct 与 instantiate 的东西。
@@ -114,4 +114,4 @@ Required port 在诞生时写定，运行中再接新东西是 Kernel 的待定�
 - 经 socket 连上的 root entry 与持续对话，见 Plan.md「以后的方向」的「持续对话」。场景：W0 持续对话。
 - 多个模型槽位。场景：异质检验。
 
-参考：../Model/README.md（宿主适配、录制与回放）；../Directory/README.md（导入、物化）；../Library/Presets.md（W0）；../Library/Packages.md（两层、家目录）；../Library/Runtime.md（工具、交办）。
+参考：../Model/README.md（宿主适配、录制与回放）；../Directory/README.md（导入、物化）；../Library/Presets.md（W0）；../Library/Packages.md（目录与留存）；../Library/Runtime.md（工具、交办）。

@@ -11,7 +11,7 @@
 - `library/`：ReAct、文件工具、工作区、交办与预置 Application 使用的 Lang0 包。
 - `docs/Directory/`：目录与文件执行。
 - `docs/Model/`：模型服务 Port。
-- `docs/Library/`：包与家目录、运行、组织、预置 Charter 与 Application。
+- `docs/Library/`：包与管理器、运行、组织、预置 Charter 与 Application。
 - `docs/Research/`：应用侧的研究线索。
 
 ## 状态

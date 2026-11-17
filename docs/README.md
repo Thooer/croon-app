@@ -8,7 +8,7 @@
 |---|---|---|
 | Directory | 导入、物化与文件执行；Tree 的领域格式由 croon 定义 | croon 的 Value、Bundle 与交付契约；Tree |
 | Model | 模型服务的 Port 形状与宿主适配边界 | croon 的 Value、Reference |
-| Library | 包与家目录、认知模式、工具、组织做法与 Application | croon、croon-lang0、Directory、Model |
+| Library | 包与管理器、认知模式、工具、组织做法与 Application | croon、croon-lang0、Directory、Model |
 | Application | 按场景装好的 Definition、Charter、接线与提示词 | Library、Directory、Model |
 | Host | 根在系统外的装配：Kernel、Language、宿主 Port、root entry 与客户端，以及 `definition.infer` | croon 的 Kernel 运行时、croon-lang0、Directory、Model、Library |
 
@@ -49,7 +49,7 @@
 | Petname | 本地名字 | 英 | 只对自己有意义的短名字；名字空间里的名字，见 Library/Runtime.md |
 | Namespace | 名字空间 | 中 | 主体持有的 Reference 的本地名字表，见 Library/Runtime.md |
 | Package | 包 | 中 | 一份带 README 与索引的目录 Bundle，见 Library/Packages.md |
-| Home | 家目录 | 中 | 磁盘上装着用户的包、工具清单与技能的目录，在系统里是一个工作区，见 Library/Packages.md |
+| Library 目录 | 包目录 | 中 | 磁盘上装着所有包与工具清单的目录，在系统里是一个工作区，改动经采用留存，见 Library/Packages.md |
 | Skill | 技能 | 中 | 一段教模型怎样组合已有工具的说明，是工具表里的一种 |
 | Custodian | 保管者 | 中 | 见 croon:docs/Kernel/Reference.md「持有意味着什么」 |
 | Registrar | 登记者 | 中 | |

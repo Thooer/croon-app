@@ -4,7 +4,7 @@ Library 是随 App 交给用户的一组包，用 Lang0 与 Kernel 的 Port 写�
 
 ## 地图
 
-- Packages.md：包、家目录与管理器——Library 是什么、装在哪、怎样看、装、载。
+- Packages.md：包与管理器——Library 是什么、怎样留存、怎样看、装、载。
 - Runtime.md：ReAct、名字空间、工具、工作区、交办、Middleware——一个主体怎样做事，从外面能在哪三处插入。
 - Organization.md：共享与保密、连续的地址、Handoff、历史分支与合并——Principal 怎样组织多个主体，保持连续与历史。
 - Presets.md：预置 Charter 的规则与 Application——Library 提供哪些成品，装它们时守什么。

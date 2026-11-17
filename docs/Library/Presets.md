@@ -4,7 +4,7 @@
 
 ## 预置给谁
 
-预置给的是用户，不是某个主体。用户在系统里就是 root entry：它的求值器在系统外，今天是一次性客户端。预置分两类：能力，即 root binding 接上的模型、文件执行、推导，与 Kernel 的 pack、construct、instantiate；内容，即 App 的包与用户磁盘上的家目录，见 Packages.md「两层」。
+预置给的是用户，不是某个主体。用户在系统里就是 root entry：它的求值器在系统外，今天是一次性客户端。预置分两类：能力，即 root binding 接上的模型、文件执行、推导，与 Kernel 的 pack、construct、instantiate；内容，即磁盘上的 Library 目录，见 Packages.md「目录与留存」。
 
 W0 是用户实例化的、由模型驱动的手，它拿到的一切经接线从用户那里派生，不是继承：委托是显式的，可以收窄、撤销，用户持有对它的 Look 与 Correct。所以 W0 没有特权，用户可以少给它一些，比如不给联网；也可以换成自己写的手，宿主运行哪一个 Definition 由调用方指定，见 ../Host/README.md「运行哪一个 Definition」。共享的、要留存的东西属于用户，不属于 W0。人能做的与 W0 能做的是同一组操作，见 Packages.md「管理器」。
 

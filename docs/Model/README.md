@@ -29,7 +29,7 @@ HTTP 适配、推理签名、缓存控制、部分结果和其他协议仍需各
 | 网络：解析不了地址、连不上、代理拒绝 | 宿主故障 |
 | 适配器本地：起不了 curl、写不了临时文件、回复超出适配器上限 | 宿主故障 |
 
-`use` 失败作为结果记下，交还 body：同样的请求重做也不会更好，要不要重试、怎样改请求由 Library 决定，每次真正重试是新键的行动。它的 data 是 `{"status": HTTP 状态或 null, "type": Provider 给的错误类型或 null}`，message 带 Provider 的错误说明。
+`use` 失败作为结果记下，交还 body：同样的请求重做也不会更好，要不要重试、怎样改请求由 Library 决定，每次真正重试是新键的行动；偶发的那类 Library 默认重试，见 ../Library/Runtime.md「模型调用」。它的 data 是 `{"status": HTTP 状态或 null, "type": Provider 给的错误类型或 null}`，message 带 Provider 的错误说明。
 
 宿主故障不写业务结果，Kernel 停下这个 Instance，等宿主修好后重开，从固定请求重做；模型调用是无世界效果通道，重做不重复副作用。网络断了不能记成业务失败：那样一次断网就让主体永久失败，而修好网络本不需要换 Definition。
 

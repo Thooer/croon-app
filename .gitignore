@@ -3,6 +3,8 @@ target/
 /library/model.py
 /library/directory.py
 /library/infer.py
-/config/agent-provider.json
+/config/agent-provider*.json
 /library/tools.py
 experiments/runs/
+experiments/__pycache__/
+experiments/tasks/*/__pycache__/

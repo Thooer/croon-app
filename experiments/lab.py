@@ -220,7 +220,12 @@ def judge(task, model, attempt, d, code, faults, timed_out, seconds):
     host_fault = code != 0 and not timed_out and is_host_fault((attempt / "run.log").read_text() if (attempt / "run.log").exists() else "")
     failed_run = code != 0
     if failed_run:
-        verdict, broken = {"passed": False, "reason": "运行没有正常结束", "details": {}}, False
+        # W0 自己以失败结束（如模型服务一直不可用）不是任务没做对：记下失败的 kind 与 message，阶段是 run_failed。
+        tail = ""
+        if (attempt / "run.log").exists():
+            lines = [l for l in (attempt / "run.log").read_text().splitlines() if l.startswith("运行失败")]
+            tail = lines[-1][:300] if lines else ""
+        verdict, broken = {"passed": False, "stage": "run_failed", "reason": f"运行没有正常结束：{tail}"[:160], "details": {"tail": tail}}, False
     else:
         verdict, broken = check(task, attempt)
     direct = sum(1 for c in d["calls"] if c["name"] in ("write_file", "run"))

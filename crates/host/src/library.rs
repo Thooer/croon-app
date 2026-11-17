@@ -20,6 +20,7 @@ pub const SOURCES: &[(&str, &str)] = &[
     ("agents.py", include_str!("../../../library/agents.py")),
     ("files.py", include_str!("../../../library/files.py")),
     ("manager.py", include_str!("../../../library/manager.py")),
+    ("model_call.py", include_str!("../../../library/model_call.py")),
     ("README.md", include_str!("../../../library/README.md")),
     ("react.py", include_str!("../../../library/react.py")),
     ("s.py", include_str!("../../../library/s.py")),

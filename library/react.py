@@ -2,6 +2,7 @@
 from typing import Any, Callable
 import croon
 from croon import Inbox, receive
+from library.model_call import generate as ask
 
 
 def react(generate: Callable, tools: list[Callable], messages: list[Any], system: str,
@@ -35,7 +36,7 @@ def react(generate: Callable, tools: list[Callable], messages: list[Any], system
 
     for turn in range(max_turns):
         refresh()
-        r = croon.send(generate, {"system": system, "messages": messages, "tools": specs}).value
+        r = ask(generate, {"system": system, "messages": messages, "tools": specs})
         if r["finish"] not in ["stop", "tool_calls"]:
             raise RuntimeError(f"生成没有正常结束：{r['finish']}")
         messages.append({"role": "assistant", "text": r["text"],

@@ -33,6 +33,11 @@ pub fn schema(name: &str) -> Json {
     blocks::json(name)
 }
 
+/// 场景预期（`library.scenario.*`），只给测试与核对脚本用。
+pub fn scenario(name: &str) -> Json {
+    blocks::scenario(name)
+}
+
 /// 宿主一侧的故障：配置、装配或运行中的任何一步停下。
 #[derive(Debug)]
 pub struct Error(pub String);

@@ -18,7 +18,7 @@ fn w0_runs_with_a_replayed_model_and_real_docker_and_recovers_from_the_journal()
     fs::write(repo.join("a.py"), "broken\n").unwrap();
 
     // W0 自己写文件，不交办：请求里没有 git diff 的真实输出，录像能事先写定。
-    let scenario: Json = host::schema("library.scenario.delegate");
+    let scenario: Json = host::scenario("library.scenario.delegate");
     let first_request = &scenario["values"]["sha256:lw0send0"];
     let task = "把 a.py 改成 fixed";
     let call =

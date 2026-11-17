@@ -1,6 +1,7 @@
 //! 真 Provider 的冒烟：record 模式跑完一次 W0 任务。只断言任务完成、结果目录存在、录像里没有凭据。
 //! 会调用真模型并产生费用，所以 ignore；录像只在临时目录里，不提交。
-//! provider 配置取自仓库的 config/agent-provider.json，它由 .gitignore 排除。
+//! provider 配置取自仓库的 config/agent-provider.json，它由 .gitignore 排除：从 config/agent-provider.example.json 复制并填好。
+//! 没有这份文件时测试 panic 并说明缺什么，不会静默通过。
 //! 参考：docs/Host/README.md（配置）；docs/Model/README.md（录制与回放）。
 
 mod support;

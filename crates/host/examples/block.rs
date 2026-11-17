@@ -3,5 +3,10 @@
 
 fn main() {
     let name = std::env::args().nth(1).expect("usage: block NAME");
-    println!("{}", serde_json::to_string(&host::schema(&name)).unwrap());
+    let value = if name.starts_with("library.scenario.") {
+        host::scenario(&name)
+    } else {
+        host::schema(&name)
+    };
+    println!("{}", serde_json::to_string(&value).unwrap());
 }

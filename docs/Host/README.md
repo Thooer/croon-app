@@ -74,7 +74,7 @@ root entry 接上 `infer`，运行中的主体才能把写好的源码变成构�
 
 Definition 是本仓库自己的 `host.root`，不借 croon 场景里的共享 root；各 Port 的规格引用上表来源的 block，不复写。
 
-Required port 在诞生时写定，运行中再接新东西是 Kernel 的待定，所以 root entry 的 Interface 就是这个系统能用的全部外部能力。第一版只接一个模型；要异质检验时换一份声明多个模型的 root Definition，是增量。root entry 不接自己的 Look，也不收别的到达：它只交任务、等结束。
+Required port 在诞生时写定，运行中再接新东西是 Kernel 的待定，所以 root entry 的 Interface 就是这个系统能用的全部外部能力。现在只接一个模型；要异质检验时换一份声明多个模型的 root Definition，是增量。root entry 不接自己的 Look，也不收别的到达：它只交任务、等结束。
 
 ## 构造的推导
 

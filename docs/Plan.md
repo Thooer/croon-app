@@ -4,7 +4,7 @@
 
 ## 范围
 
-第一版只做本地单租户：一台机器，一个系统，一个根。云上多租户第一版不做，接口见 croon:docs/Kernel/README.md「待定」里的「云上多租户」：每个操作带系统 ID，存储按系统分开。
+现在只做本地单租户：一台机器，一个系统，一个根。云上多租户暂不做，接口见 croon:docs/Kernel/README.md「待定」里的「云上多租户」：每个操作带系统 ID，存储按系统分开。
 
 croon-app 拥有模型适配、Directory 与 Docker 文件执行、Library 与 Application；Kernel 的通用契约和 Lang0 的求值器由上游仓库拥有。本仓库只写应用侧的决定，Kernel 与 lang0 的语义见各自的权威文档。
 
@@ -120,7 +120,7 @@ croon-app 拥有模型适配、Directory 与 Docker 文件执行、Library 与 A
 - **Charter**：开始组织型实验前补齐「制造闭环」Charter 版所依赖的正确性缺口。
 - **实验台做成 Definition**：任务协议、评价与记录方法稳定后，把已有实验能力组合成专门的 Definition，跟它说话就能提实验、看结果；复用通用交办与固定检查器，被测主体不自评。
 - **场景同步工具**：随实际改动减少 Interface、工具说明等派生数据的手工维护；关键行为预期保留独立来源与明确断言，不由被测实现自动生成。不作为实验的前置大项目。
-- 联网：可用性要它。做法在 croon:docs/Kernel/Reference.md「通道」与待定；第一版不联网。
+- 联网：可用性要它。做法在 croon:docs/Kernel/Reference.md「通道」与待定；现在不联网。
 - 历史管理：执行恢复依赖 Journal 的分叉待定。
 - **语言摩擦对照**：当近期实验反复撞到 Lang0 的表达限制时，为同一场景分别写普通 Python 与 Lang0，逐处说明差异及其原因，检查是否存在未报告的语义变化。模型完成能力的量化按「下一步」与「测试」推进。
 - Provider 的管理面：KV Cache 的管理、推理的控制面。前缀复用现在只能在基础设施一侧做，经 HTTP 够不到；线索见 croon:docs/Kernel/Port.md 的待定。排在靠后。

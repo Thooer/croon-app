@@ -210,6 +210,22 @@ pub fn default_config() -> Option<PathBuf> {
     path.is_file().then_some(path)
 }
 
+/// `sessions` 目录下有哪些会话，按最近修改在前。目录不存在就是没有，不会因为看一眼而建出来。
+pub fn list_sessions(sessions: &Path) -> Vec<String> {
+    let mut found: Vec<(std::time::SystemTime, String)> = std::fs::read_dir(sessions)
+        .into_iter()
+        .flatten()
+        .flatten()
+        .filter(|e| e.path().join("kernel/journal.db").is_file())
+        .filter_map(|e| {
+            let modified = e.metadata().ok()?.modified().ok()?;
+            Some((modified, e.file_name().to_string_lossy().into_owned()))
+        })
+        .collect();
+    found.sort_by(|a, b| b.0.cmp(&a.0));
+    found.into_iter().map(|(_, name)| name).collect()
+}
+
 /// 会话名要出现在容器名与路径里：只允许字母、数字、`-`、`_`、`.`，不以 `.` 开头。
 pub fn valid_session_name(name: &str) -> bool {
     !name.is_empty()
@@ -435,12 +451,14 @@ impl Client<'_> {
                 return Ok(result);
             }
             let progress = self.kernel.run()?;
+            let store = self.kernel.store().clone();
             self.progress.report(
                 self.kernel
                     .index()
                     .journals
                     .iter()
                     .map(|(id, journal)| (id.as_str(), journal.records.as_slice())),
+                &|id| store.get_json(&croon_eval::value::ValueId::parse(id)?).ok().flatten(),
             );
             // 被宿主停下的 Instance 要修好宿主、重开之后才会再走：这次运行跑不完，不再等。
             let stopped = self.kernel.stopped();
@@ -550,6 +568,30 @@ fn drive(
         Some(session) => session,
         None => settings.session(None, &state_home()?.join("sessions"))?,
     };
+    // 先看这个会话是什么状态，再决定做什么：判断没有任何副作用，所以拼错名字不会留下东西，
+    // 重复的名字也不会先去碰录像。有 journal.db 就是开始过。
+    let started = session.kernel.join("journal.db").is_file();
+    match (started, resuming) {
+        (true, false) => {
+            return Err(Error(format!(
+                "会话 {0} 里已经有一次运行：续做用 resume --session {0}，要做新的就换一个会话名（不给 --session 会自己取一个）",
+                session.name
+            )));
+        }
+        (false, true) => {
+            let others = list_sessions(session.kernel.parent().and_then(Path::parent).unwrap_or(Path::new("")));
+            let hint = if others.is_empty() {
+                "这台机器上还没有别的会话".to_owned()
+            } else {
+                format!("已有的会话：{}", others.iter().take(8).cloned().collect::<Vec<_>>().join("、"))
+            };
+            return Err(Error(format!(
+                "找不到会话 {}：它没有开始过。要开始一次运行用 run；{hint}",
+                session.name
+            )));
+        }
+        _ => {}
+    }
     std::fs::create_dir_all(&session.kernel)?;
     std::fs::create_dir_all(&session.state)?;
     let model = match assembly.model {
@@ -580,15 +622,14 @@ fn drive(
 
     let existing = kernel.index().root().map(ToString::to_string);
     let (root, job) = match (existing, start) {
-        (Some(_), Some(_)) => {
-            return Err(Error(
-                format!(
-                    "会话 {} 里已经有一次运行：续做用 resume --session {}，要做新的就换一个会话名（不给 --session 会自己取一个）",
-                    session.name, session.name
-                ),
-            ));
+        // 有 journal.db 却没有 root：创建 root 之前就中断了。没有东西丢失，重新 run 即可。
+        (None, None) => {
+            return Err(Error(format!(
+                "会话 {} 在创建之前就中断了，没有留下运行：用 run --session {} 重新开始",
+                session.name, session.name
+            )));
         }
-        (None, None) => return Err(Error("这个 Kernel 目录里没有开始过的运行（可能在创建 root entry 之前就中断了）：用 run 重新开始".into())),
+        (Some(_), Some(_)) => unreachable!("上面已经拒绝了重复的会话"),
         (Some(root), None) => {
             let job = recorded(&kernel, &root)?;
             (root, job)
@@ -681,7 +722,7 @@ fn drive(
     let mut client = Client {
         kernel: &mut kernel,
         conn,
-        progress: progress::Progress::new(assembly.quiet),
+        progress: progress::Progress::new(assembly.quiet, resuming),
     };
     client.send(
         "construct-w0",

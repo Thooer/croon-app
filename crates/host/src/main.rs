@@ -59,21 +59,6 @@ fn missing(what: &str) -> ExitCode {
     ExitCode::from(2)
 }
 
-/// 最近的几个会话，按修改时间新到旧：名字与有没有结束（Kernel 目录里有 journal 就算开始过了）。
-fn recent_sessions(sessions: &Path) -> Vec<String> {
-    let mut found: Vec<(std::time::SystemTime, String)> = std::fs::read_dir(sessions)
-        .into_iter()
-        .flatten()
-        .flatten()
-        .filter_map(|e| {
-            let modified = e.metadata().ok()?.modified().ok()?;
-            Some((modified, e.file_name().to_string_lossy().into_owned()))
-        })
-        .collect();
-    found.sort_by(|a, b| b.0.cmp(&a.0));
-    found.into_iter().take(8).map(|(_, n)| n).collect()
-}
-
 /// 自动取的会话名：UTC 的日期时间加任务的短哈希。同一秒里同一个任务的重复不会撞：哈希之后再加序号。
 fn auto_name(task: &str, sessions: &Path) -> String {
     let secs = std::time::SystemTime::now()
@@ -123,10 +108,8 @@ fn main() -> ExitCode {
             return ExitCode::from(2);
         }
     };
-    let Some(out) = a.out.clone() else {
-        return missing("--out 结果目录");
-    };
     let resuming = command == "resume";
+    let out = a.out.clone();
     if resuming && (a.repo.is_some() || a.task.is_some() || a.tools.is_some() || a.source.is_some() || a.input.is_some()) {
         eprintln!("resume 不收仓库、任务、源码与清单：它们取自这次运行自己的记录\n\n{USAGE}");
         return ExitCode::from(2);
@@ -160,7 +143,7 @@ fn main() -> ExitCode {
         (Some(n), _) => n.clone(),
         (None, true) if settings.system.is_some() => settings.system.clone().unwrap(),
         (None, true) => {
-            let recent = recent_sessions(&sessions);
+            let recent = host::list_sessions(&sessions);
             if recent.is_empty() {
                 eprintln!("resume 要 --session 名字，而这台机器上还没有任何会话（{}）。", sessions.display());
             } else {
@@ -178,6 +161,17 @@ fn main() -> ExitCode {
             return ExitCode::from(2);
         }
     };
+    // resume 的会话要先存在：名字拼错的人该先知道「找不到」，不是先被要求给 --out。
+    if resuming && !session.kernel.join("journal.db").is_file() {
+        let others = host::list_sessions(&sessions);
+        let hint = if others.is_empty() {
+            "这台机器上还没有别的会话".to_owned()
+        } else {
+            format!("已有的会话：{}", others.iter().take(8).cloned().collect::<Vec<_>>().join("、"))
+        };
+        eprintln!("找不到会话 {}：它没有开始过。要开始一次运行用 run；{hint}", session.name);
+        return ExitCode::FAILURE;
+    }
     if !resuming && !a.quiet {
         eprintln!("会话 {}（resume 时用 --session {}）", session.name, session.name);
     }
@@ -201,6 +195,10 @@ fn main() -> ExitCode {
         ..Default::default()
     };
 
+    // --out 到这里才要：前面只是在查询会话，列出或报「找不到」都不需要结果目录。
+    let Some(out) = out else {
+        return missing("--out 结果目录");
+    };
     let result = match command {
         "resume" => host::resume(&settings, assembly, &out),
         "exec" => {

@@ -107,7 +107,7 @@ diff -ru /tmp/demo/repo /tmp/demo/out
 target/debug/croon-app resume --session 会话名 --out /tmp/demo/out2
 ```
 
-不记得会话名：`resume` 不带 `--session`，它列出最近的几个。`--out` 要是还不存在或空的目录。已经结束的运行再 `resume` 得到同样的结果。
+不记得会话名：`croon-app resume`（什么参数都不带）会列出最近的几个。会话名拼错了，它会说「找不到会话」并列出已有的。`--out` 要是还不存在或空的目录。已经结束的运行再 `resume` 得到同样的结果。
 
 **6. 不要模型也能试**：`exec` 直接运行一份 Lang0 源码，不经模型；它也是一次独立的运行，有自己的会话，不会撞上上一步的。但它也要读配置里的模型服务，所以先要有第 3 步的配置。
 

@@ -24,7 +24,7 @@ TIMEOUT = 1200  # 一次运行最多 20 分钟
 
 # 容器与镜像的装配：与 crates/host/tests/support 里的一致，实验用同样的限额。
 DIRECTORY = {
-    "docker": __import__("os").environ.get("LAB_DOCKER", "/usr/bin/docker"), "python": "/usr/bin/python3",
+    "docker": shutil.which("docker") or "/usr/bin/docker", "python": sys.executable,
     "image": "croon-work:2", "collector_image": "python:3.12-slim", "platform": "linux/amd64",
     "cpus": "1", "memory_bytes": 536870912, "work_bytes": 67108864, "temporary_bytes": 67108864,
     "pids": 128, "output_bytes": 65536, "nodes": 20000, "archive_bytes": 134217728,

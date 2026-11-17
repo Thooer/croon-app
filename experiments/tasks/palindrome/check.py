@@ -20,5 +20,8 @@ for given, want in cases:
 if bad:
     verdict(False, f"{len(bad)}/{len(cases)} 个输入不对", stage="wrong", name=name, bad=bad)
     raise SystemExit
-missing = reported(attempt, [])
+# W0 要说「是回文」：中文「是」或英文 true，且不能同时说「不是」「false」。
+final = load(attempt)["final_text"].lower()
+said_yes = ("true" in final or "是回文" in final or "是" in final) and "false" not in final and "不是" not in final
+missing = [] if said_yes else ["是回文"]
 verdict(not missing, "全部对，W0 转述对" if not missing else f"主体对，W0 的转述里没有 {missing}", stage="report", name=name)

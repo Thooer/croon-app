@@ -20,5 +20,10 @@ for given, want in cases:
 if bad:
     verdict(False, f"{len(bad)}/{len(cases)} 个输入不对", stage="wrong", name=name, bad=bad)
     raise SystemExit
-missing = reported(attempt, [])
+# W0 的转述里要有去重后的四个数，按它们在文字里出现的先后（不要求格式）。
+final = load(attempt)["final_text"]
+import re
+nums = [int(n) for n in re.findall(r"-?\d+", final)]
+ok_report = any(nums[i:i + 4] == [3, 1, 2, 4] for i in range(len(nums)))
+missing = [] if ok_report else ["3, 1, 2, 4"]
 verdict(not missing, "全部对，W0 转述对" if not missing else f"主体对，W0 的转述里没有 {missing}", stage="report", name=name)

@@ -3,5 +3,8 @@
 
 fn main() {
     let name = std::env::args().nth(1).expect("usage: block_shared NAME");
-    println!("{}", serde_json::to_string(&scenarios::blocks::json(&name)).unwrap());
+    println!(
+        "{}",
+        serde_json::to_string(&scenarios::blocks::json(&name)).unwrap()
+    );
 }

@@ -3,73 +3,20 @@
 //! Directory 与 Kernel 的 block。
 //! 参考：docs/Host/README.md（配置、root entry、构造的推导）。
 
-use croon_eval::blocks::{Block, expanded, find};
+use croon_eval::blocks::{Block, chain, expanded, find};
 
-pub static BLOCKS: &[Block] = &[
-    Block {
-        name: "host.config",
-        lang: "json",
-        text: include_str!("../schema/host.config.json"),
-        file: "crates/host/schema/host.config.json",
-        line: 0,
-    },
-    Block {
-        name: "host.root",
-        lang: "json",
-        text: include_str!("../schema/host.root.json"),
-        file: "crates/host/schema/host.root.json",
-        line: 0,
-    },
-    Block {
-        name: "library.scenario.delegate",
-        lang: "json",
-        text: include_str!("../schema/library.scenario.delegate.json"),
-        file: "crates/host/schema/library.scenario.delegate.json",
-        line: 0,
-    },
-    Block {
-        name: "definition.infer",
-        lang: "json",
-        text: r#"{
-  "description": "从 Definition 草稿的 body 推出 Interface；纯计算，不建立构造事实",
-  "in": {
-    "type": "object",
-    "properties": {
-      "language": {"enum": ["lang0@1"]},
-      "body": {
-        "type": "object",
-        "properties": {
-          "source": {"type": "string"},
-          "modules": {"type": "string", "description": "模块目录的 Tree ID，要在本次交付的依赖里"}
-        },
-        "required": ["source"],
-        "additionalProperties": false
-      }
-    },
-    "required": ["language", "body"],
-    "additionalProperties": false
-  },
-  "attach": {"additionalProperties": false},
-  "out": {
-    "value": {
-      "type": "object",
-      "properties": {"interface": {"type": "object"}},
-      "required": ["interface"],
-      "additionalProperties": false
-    },
-    "attach": {"additionalProperties": false}
-  }
-}"#,
-        file: "crates/host/src/blocks.rs",
-        line: 0,
-    },
+pub static BLOCKS: &[Block] = croon_eval::block_files![
+    "host.config",
+    "host.root",
+    "library.scenario.delegate",
+    "definition.infer",
 ];
 
 /// 本 crate 的 block，找不到的沿依赖往下找。
 pub fn block(name: &str) -> Option<&'static Block> {
-    find(BLOCKS, name)
-        .or_else(|| model::block(name))
-        .or_else(|| directory::block(name))
+    chain(find(BLOCKS, name), || {
+        chain(model::block(name), || directory::block(name))
+    })
 }
 
 /// 一份 block，`$block` 已展开。

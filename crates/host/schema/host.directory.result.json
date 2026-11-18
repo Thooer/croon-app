@@ -1,0 +1,10 @@
+{
+  "description": "本地调用方交付目录工具的结果",
+  "type": "object",
+  "properties": {
+    "value": {"description": "被运行源码的完整结束值"},
+    "directory": {"type": "string", "description": "本次文件产物的宿主绝对路径"}
+  },
+  "required": ["value", "directory"],
+  "additionalProperties": false
+}

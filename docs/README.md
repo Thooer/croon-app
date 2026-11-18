@@ -29,6 +29,7 @@
 | Tree 的目录内容形状是什么 | croon:docs/Tree.md「Tree」 |
 | 模型服务的 Port 形状、宿主适配与配置 | Model/README.md |
 | Library 是什么、包装在哪、怎样看、装、载 | Library/Packages.md |
+| 怎样交付一个带使用说明和配置的目录工具包 | Library/Packages.md「发货标签包」；仓库根 examples/shipping_labels/README.md |
 | Library 怎样运行 ReAct、工具与交办 | Library/Runtime.md |
 | 怎样组织多个主体、交接与历史；做法什么时候走动态、什么时候走 Handoff | Library/Organization.md |
 | 预置 Charter 与 Application 收什么 | Library/Presets.md |

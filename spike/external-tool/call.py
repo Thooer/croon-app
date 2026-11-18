@@ -7,20 +7,14 @@ import subprocess
 import sys
 import tempfile
 
-
-def run_json(binary, *args, env):
-    proc = subprocess.run(
-        [binary, *args], env=env, capture_output=True, text=True, timeout=240, check=True
-    )
-    return json.loads(proc.stdout)
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "crates/host/clients"))
+from croon_cli import BoundSource, run_json
 
 
 def bind(binary, name, source, out, env, *, snapshot=None, config=None):
     """注册者选源码、配置和目录。模型调用时只传模型的参数。"""
-    inputs = ["--source", source]
-    if snapshot is not None:
-        inputs += ["--snapshot", snapshot]
-    tool = run_json(binary, "describe", *inputs, "--tool", name, env=env)
+    bound = BoundSource(binary, name, source, snapshot=snapshot, config=config, env=env)
+    tool = bound.tool
     spec = {
         "type": "function",
         "function": {
@@ -29,13 +23,9 @@ def bind(binary, name, source, out, env, *, snapshot=None, config=None):
             "parameters": tool["input"],
         },
     }
-    settings = [] if config is None else ["--config", config]
 
     def invoke(arguments):
-        return run_json(
-            binary, "exec", *inputs, *settings, "--input", json.dumps(arguments),
-            "--out", out, "--json", env=env,
-        )
+        return run_json(bound.command(arguments, out), env)
 
     return spec, invoke
 

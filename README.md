@@ -4,6 +4,8 @@ croon-app 是一个命令行编码 Agent。它默认运行的主 Agent 叫 W0。
 
 W0 造 Agent 用的，正是当初造出 W0 自己的那个操作。启动时，宿主用 [Croon](https://github.com/Thooer/croon) 内核的 `construct` 构造 W0，再把它运行起来；工作中，W0 的 `make` 调用的也是这个 `construct`。因此，写应用的人不必预先决定每个帮手要做什么。W0 本身就跑在这个框架里，却也能在看到任务之后编写帮手，给它接上所需的工具，等它交回结果，再决定是否采用。
 
+下面这次运行记录了 W0 怎样编写帮手，再把修复任务交给它。如果你平时用 Pi，可以先从发货标签包试起，把一个已有的 Croon Agent 注册到自己的会话里。[在 Pi 中使用发货标签包](examples/shipping_labels/README.md)
+
 ## 一次运行里发生了什么
 
 我们给 W0 的目录里只有一个 `a.py`，其中的 `add` 把加法写成了减法。这次我们明确要求它把修复交出去，没给帮手起名，也没提供实现：
@@ -89,7 +91,7 @@ Library 是一组用 lang0 写成的普通包。它在内核眼里没有任何�
 
 ## 上手
 
-**需要**：Linux、Docker、Python 3、curl、Rust（stable），一个 OpenAI 兼容的模型服务和它的密钥。三个仓库要并排放在同一个目录下：
+**运行环境**为 Linux、Docker、Python 3、curl 和 Rust（stable）。将三个仓库并排放在同一个目录下。
 
 ```
 任意目录/
@@ -114,7 +116,7 @@ docker pull python:3.12-slim
 
 `docker pull` 走的是 Docker Hub，慢的话（我们遇到过 5 分钟）要给 Docker 配 registry mirror，与本项目无关；`docker images python` 能看到是否已经有。建任务镜像时包源慢，可以换：`--build-arg ALPINE_MIRROR=https://mirrors.aliyun.com/alpine`。
 
-**3. 写配置**。两份文件，都很短：
+**3. 运行 W0 或其他需要模型的 Agent 时，配置模型服务**。准备一个兼容 OpenAI Chat Completions 的服务，按下面的示例填写密钥和路径。试用第 6 步的纯计算程序或发货标签包时，可以跳过这一步。
 
 ```
 mkdir -p ~/.config/croon
@@ -177,6 +179,8 @@ target/debug/croon-app exec --source "$tool_source" --json \
 第一条给出 `name`、`description` 和 `input`。接入 OpenAI 兼容的工具调用时，直接把 `input` 用作函数的 `parameters`。收到对 `count_passing` 的调用后，把模型给的参数交给第二条命令。退出码为 0 时解析整个 stdout，这一次读到的是 `{"count":2,"summary":"达标 2 项"}`。退出码非零时，从 stderr 取诊断。
 
 要注册自己的 Agent，换掉源码路径和注册名即可。`spike/external-tool/call.py` 里的 `bind` 演示了如何把上面两步接进 Python 程序。运行 `python3 -B spike/external-tool/call.py target/debug/croon-app` 可以同时试正常输入和错类型输入。
+
+要写一个免模型的目录工具，可以从发货标签包开始。它随包附带可修改的 JSON 配置，用同一份源码处理不同批次，也能通过本地 MCP 接到 Pi。逐步操作见 [发货标签包](examples/shipping_labels/README.md)。
 
 处理目录的 Agent 也能用同一个 `bind` 注册。上文 W0 编写的源码原样放在 `spike/external-tool/fix_add_agent.py`。用 `describe --source` 查看它的完整接口，可以看到 `task` 和 `snapshot`。下面的调用方在注册和执行时都用 `--snapshot` 指定输入目录，注册给模型的参数就只剩 `task`。这个例子会调用真实模型，先完成上手第 3 步的配置。
 

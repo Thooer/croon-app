@@ -1,0 +1,10 @@
+{
+  "description": "本地目录工具的使用者绑定。相对路径以绑定文件所在目录为基准。",
+  "type": "object",
+  "properties": {
+    "input_dir": {"type": "string", "description": "接给工具的输入目录"},
+    "results_dir": {"type": "string", "description": "存放各次调用产物的目录"}
+  },
+  "required": ["input_dir", "results_dir"],
+  "additionalProperties": false
+}

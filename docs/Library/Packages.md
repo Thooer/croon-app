@@ -13,6 +13,12 @@ Library 是一个目录，里面是一组包与工具清单。管理器是 W0 �
 - **例子**是包里可以直接运行的主体。测试负责构造并运行它们，例子因此不会过期；模型可以照抄它的源码，也可以直接载入它。
 - **生成模块**由宿主生成，导入时放进目录 Bundle，重放不随宿主构建改变类型，不进 Git，也不写回：library.kernel 只提供 KernelPort 的 Port spec 与 Outcome；library.model 的 Generate 来自 model.generate；library.directory 的 Exec 来自 directory.exec；library.infer 的 Infer 来自 definition.infer；library.tools 列出诞生时可载入的函数工具包，见 Runtime.md「工具」。生成器在本仓库。
 
+### 发货标签包
+
+`examples/shipping_labels/` 是可以单独交给使用者的目录工具样例。包内的 `main.py` 声明 `copies` 和所需的文件执行能力，README 说明输入、命令失败和交付的文件。随包的 `binding.example.json` 供使用者复制。接入程序读取选定的配置，并按配置文件的位置解析相对路径。两份配置可以把同一份源码分别接到两批货物。这个本地接入程序的配置形状在 block `host.directory.binding`。
+
+CLI 与本地 MCP 都经 `describe --tool` 取得带绑定的工具说明，再用 `exec --json` 调用。宿主路径留在注册者一侧，使用者只填 `copies`。每次成功调用都交回完整结束值和独立的结果目录。这个包位于仓库的示例目录，默认工具清单仍由用户选定。其他包的清单格式和前端展示提示留待第二个用例确定。
+
 ## 管理器
 
 管理器是 Library 里的函数，不是 Definition，也没有自己的身份，作为 W0 的工具。现在有的是 `look`、`make`、`merge`，各做什么见下面的表；「装」是设计，见「目录与留存」。

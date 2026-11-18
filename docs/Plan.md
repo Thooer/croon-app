@@ -6,6 +6,8 @@
 
 现在只做本地单租户：一台机器，一个系统，一个根。云上多租户暂不做，接口见 croon:docs/Kernel/README.md「待定」里的「云上多租户」：每个操作带系统 ID，存储按系统分开。
 
+宿主目前只在 Linux 本机配合 Docker 验证过。跨操作系统按实际部署方式分别验收。首个候选是 Windows 用户在 WSL2 内运行 Linux 宿主和任务容器，从自己的项目目录调用工具、取回并核对文件。记录路径映射、权限和安装步骤后，再标记该环境的支持状态。Windows 原生宿主与 macOS 各需在对应环境验证。Pi、Claude Code 和 Codex 的接入按「下一步」的客户端场景验收。
+
 croon-app 拥有模型适配、Directory 与 Docker 文件执行、Library 与 Application；Kernel 的通用契约和 Lang0 的求值器由上游仓库拥有。本仓库只写应用侧的决定，Kernel 与 lang0 的语义见各自的权威文档。
 
 ## 生命周期
@@ -28,7 +30,7 @@ croon-app 拥有模型适配、Directory 与 Docker 文件执行、Library 与 A
 
 ## 现在
 
-生命周期的 0。运行闭环的一次性版本已经接上真的外部执行：根经宿主装起系统，交一个任务给 W0，取回结果写进新目录；中断后同一个 Kernel 目录重跑即恢复。已完成：
+正在为阶段 2 做准备。独立进程调用、首次使用者走查和 Pi 的本地 stdio MCP 接入已在 Linux 上验证。其他客户端接入和真实开发者试用见「下一步」。运行闭环的一次性版本已经接上真的外部执行：根经宿主装起系统，交一个任务给 W0，取回结果写进新目录；中断后同一个 Kernel 目录重跑即恢复。已完成：
 
 - **宿主装配**：host.config 装起 Kernel、Lang0、模型与 Docker 文件执行，app 自己的 root Definition，一次性客户端 `croon-app run`，见 Host/README.md。端到端由 host 的 `host`、`delegation` 测试验收，用真 Docker 与脚本化或回放的模型。
 - **模型**：OpenAI Chat Completions 适配器；录制与回放按逻辑行动领用；失败按谁能修好分成 use 与宿主故障，见 Model/README.md。真 Provider 由 `smoke` 冒烟。
@@ -37,9 +39,9 @@ croon-app 拥有模型适配、Directory 与 Docker 文件执行、Library 与 A
 - **场景**：Delegate 场景归本仓库，root 用 host.root，预期由 CPython 独立求出并逐条核对，见 Library/Scenarios/Delegate.md。
 - **运行中构造与交办**：W0 有三个管理器工具。`look` 只读 Library 目录，不起 exec：不给名字是 README 与各模块的一句话，给模块名是它的公开面（宿主经 `definition.infer` 的模块目录问法，从 `lang0::surface` 推出），`source=True` 是源码。`make` 收一份源码或工作区里的一个路径，经 `definition.infer`、pack、construct 构造，载入工具表，从下一轮起模型以它的名字直接调用，输入按它 main 的参数写，工作区的 `snapshot` 由工具填。清单里的 Agent（现在是 s）在启动时同样载入。`merge` 并入交回的目录。调用即实例化、经 Notify 收取结果；接线按目标声明的名字，从愿意交出的（W0 现在是 engine、exec）里取，是否恰好覆盖由 Kernel 检查；工作区只在目标的 in 或结束值里有 `snapshot` 时才介入，纯计算的主体不拿工作区。纯计算、只用模型、改文件三种主体与接线错误由 `construct`、`shapes`、`agent` 验收，预置的 s 走同一条路径（`delegation`、Delegate 场景）。W0 自带的只有管理器：Library 目录（`library/` 与 `tools.json`）作为目录 Bundle 交给它，它读清单载入函数工具包（现在是 files）与 Agent；根只构造 W0。函数工具包由宿主生成的 `library.tools` 列出。还没有名字空间：载入的工具表是 W0 里的一个列表；没有「装」，清单是启动时读一次，Library 目录也不留存。推导的设计见 Host/README.md「构造的推导」。
 
-**已落地的运行入口**：`croon-app run` 开始，`resume` 续做（关机、被杀、宿主故障之后都是这一条，任务与目录取自 Journal，录像接着追加），`exec` 直接运行一份源码，不经 W0。镜像是 `croon-work:2`（alpine、git、python3、pytest）。
+`croon-app run` 开始运行，`resume` 按 Journal 续做。外部程序用 `describe --tool` 注册工具，用 `exec --json` 取得源码的完整结束值。README「上手」给出构建、镜像、配置模板和测试入口。
 
-**尚未落地**：没有上手路径，README 不写怎样建任务镜像、写 host.config、跑 `croon-app run`，`config/` 下也没有模板；需要真 Docker 的测试都标了 ignore，没有统一的跑法与前提说明，其中 `smoke` 会调用真模型。root entry 只在进程内，没有 socket 与持续对话。Library 目录不留存、结果不写回调用方的目录：设计已定，见第 2 步。
+root entry 现在由进程内客户端驱动。运行中追加输入、跨任务留存 Library 和采用结果写回原目录，分别见「以后的方向」与「下一步」。
 
 **实测证据**（做法、判据与记录格式见 Experiments.md，任务与检查器在 experiments/）：
 
@@ -54,9 +56,24 @@ croon-app 拥有模型适配、Directory 与 Docker 文件执行、Library 与 A
 
 ## 下一步
 
-前一阶段的四步已经走完一轮：W0 只带管理器、运行中构造与交办（做了，`construct`、`shapes`、`agent` 验收，逐提交点与 exec 在途 SIGKILL 的恢复由 `recovery`、`kill` 验收）；管理器的看与造（做了）；真实模型的实验闭环（做了，见上面的「实测证据」）；按失败证据改一项再复测（做了三项，见同处）。上手路径也补上了：README、`config/` 下的模板、实验的说明。
+**下一个里程碑是用同一套本地服务接入 Claude Code 和 Codex。**
 
-现在的取舍：**不再在这里加难度、也不做大的长程工程**，先把已经做到的公开出来，由外部的反馈决定往哪走。下面是各项的状态与触发条件，不是承诺的顺序。
+1. 在两个客户端分别发现发货标签工具，核对业务参数，连续调用并读取各自的产物，再检查错误参数的返回。客户端按自己的使用场景显示和采用结果。
+2. **随后验显式采用。** 让 W0 在任务 A 里造出帮手，用户审过后选择采用。另开任务 B，按名字载入该帮手及其依赖，重新接上本次需要的权利，再注册给 Pi 并调用。另验未采用的候选只留在 A。留存的设计见 Library/Packages.md「目录与留存」。
+
+**发货标签包和 Pi 的实测。** 空上下文的 `gpt-6.2-sol` 从 README 起步，首次需要翻实现，是为了确认免模型的目录工具怎样用 `advance` 检查命令结果、交付快照。`examples/shipping_labels/` 据此提供了源码、操作说明和接入程序实际读取的 JSON 绑定示例。用两份配置切换同一份源码的输入目录和结果根目录，两批标签都逐字节核对通过。包的约定见 Library/Packages.md「发货标签包」。更通用的清单与前端展示提示等第二个包有具体需求时再定。
+
+Pi 1.5.2 在隔离的配置中通过 `tools/list` 发现工具。一次 `gpt-6.2-sol` 会话顺序传入 `copies` 为 2、3、0。前两次分别写入独立目录，核对两份 `print.txt` 的内容和原输入文件均符合预期。第三次在 Pi 的工具事件里标为错误，结果目录里仍只有前两份产物。
+
+**已做的进程外验证。** `spike/external-tool/call.py` 是一个独立的 Python 调用方。它从 `describe` 取得说明和输入 Schema，自选注册名 `count_passing`。原先 `exec` 只打印了 `达标 2 项`，同一个结束值里的数字字段 `count` 在 stdout 里丢了。现在 `exec --json` 交回完整对象；输入类型错误时退出 1，stdout 为空。`exec` 集成测试还用一个返回目录的 Agent 核对了 `--out` 里的文件与 stdout 中的结束值。
+
+`gpt-6.2-sol` 实际调用过 `count_passing`。它给出七个分数和阈值 65，收到 `count: 4` 后答出四项达标。
+
+目录样例 `spike/external-tool/repair.py` 使用 README 那次 W0 实际写的 `fix_add_agent`。原始接口需要 `task` 和 `snapshot`，W0 当时登记的工具输入只有 `task`。外部调用方也能在注册时选定目录，W0 与外部工具说明共用参数推导。用 `gpt-6.2-sol` 实测两次。第一次外层模型自行要求只用 `apply_patch`，镜像里没有这条命令，帮手交回失败说明和原文件。第二次让外层模型转交任务原文，绑定的目录和源码相同，结果只改了 `a.py` 的一行。原目录逐字节核对一致，独立的只读容器用四组输入核对了结果。另从仓库外按 README 直接运行 `repair.py`，配置真实模型后也取得了同一份结果目录。
+
+外部开发者试用沿用同一判据。开发者从 README「从自己的程序调用」开始，用自己的源码注册工具，核对有效输入的完整结果、错误输入的诊断和目录产物，记下第一次需要询问或翻实现的位置。
+
+README 与 `config/host.example.json` 使用任务目录之外的凭据路径。裸 `resume` 的查询按下面取舍表验收。其余项目按各自的触发条件启动。
 
 **新用户走查，三轮**（每轮一个没有项目上下文的子代理，只凭 README 与文档，用 gpt-6.1-sol 跑真实任务；前两轮开放式找问题，第三轮逐条核对上一轮的问题是否真的修好）：
 
@@ -80,7 +97,7 @@ croon-app 拥有模型适配、Directory 与 Docker 文件执行、Library 与 A
 | 事项 | 状态 | 什么时候做 |
 |---|---|---|
 | 更难的实验任务（多文件项目、两个主体协作、Lang0 没有的能力、含歧义的需求） | 没做 | 调整用的任务继续全部通过、不再能区分好坏时；它需要开发资源，现在没有 |
-| 留存：Library 目录在磁盘上、`装`、`apply`、任务目录写回 | 设计定了（Library/Packages.md、Host/README.md「结果与采用」），没写代码 | 有人要把造出来的东西带到下一次运行时。README 里已经写明现在不留存 |
+| 留存与采用 | 设计见 Library/Packages.md、Host/README.md「结果与采用」，实现待做 | 本地工具接入之后按上面的 A、B 两次任务验收。任务目录写回另验 |
 | 名字空间 | 载入的工具表是 W0 里的一个列表 | 运行中有 Reference 到达的时候（持续对话） |
 | 目录字段由 Signature 声明 | 上游待定（croon:docs/Kernel/Value.md） | 有一个 Definition 要收两份目录时；之前按字段名 `snapshot` 认 |
 | 持续对话、软硬打断 | 没做 | 任务需要运行中追加输入或干预时 |
@@ -90,13 +107,13 @@ croon-app 拥有模型适配、Directory 与 Docker 文件执行、Library 与 A
 | 项目级目录（像 `.claude/` 那样放项目自己的工具清单与说明） | 没做 | 有项目要带自己的工具清单时 |
 | 模型配置放进模型自己的 crate 所有（Model 读自己的文件，宿主只引用名字）；`directory` 的配置形状回到 Directory 的 crate | 没做 | 想让 Model 与 Directory 能脱离宿主单独使用时。**现在不做的理由**：用户看不到，只是内部更整洁；`directory` 配置的形状现在写在 `host.config` 里，违反「block 在用它的最低一层」，已知 |
 | 运行进度的详细日志、token 与费用统计、预算上限 | 只做了进度行（见下） | 有人要控制费用时 |
-| 先查会话、后读配置；列会话打在标准输出并退出 0 | 现在没配置时列不出会话，列出来也退出 2 | 第一个有人在没配置的机器上或在脚本里查会话时。改动很小，是已知缺口，不是设计 |
+| 裸 `resume` 列运行记录 | 现在没配置时列不出，列出来也在 stderr、退出 2 | 近期先修查询：无配置、无 `--out`，空列表和已有无模型 `exec` 会话都能从 stdout 取得，退出 0，不建会话目录。具名 `resume` 与 `run` 的校验顺序另议 |
 | 命令行状态组合的表与对应的测试 | 没做 | 下一次动命令行之前。三轮走查里不少问题是上一轮修复自己带来的，靠走查一个个撞太贵 |
 | 会话列表里带上「是否已结束、任务是什么、什么时候」 | 现在只列名字 | 有人记不住哪个会话是哪个任务时。这需要读每个会话的 Journal，不是只看目录 |
 | 把总结里的容器路径（`/work/a.py`）换成宿主上的真实路径；把 diff 作为一等输出 | 没做 | 有了「写回」之后一并做，它们是同一个出口 |
 | 联网、Charter 版制造 | 依赖上游 | 见「以后的方向」 |
 
-**为什么「用户空间」现在不做。** 同类工具（pi 的 `~/.pi`、Claude Code 的 `~/.claude`、Codex 的 `~/.codex`）都有，里面是四类东西：配置、凭据、跨项目的内容（skills、AGENTS.md、扩展）、运行状态（会话、历史、日志）。我们这四类都有，只是散落：配置在用户随便放的 `host.json`，凭据在仓库的 `config/`，内容（Library）编进二进制，运行状态在 `--config` 里写的 `kernel` 目录。把它们收到一个约定的位置，是对的方向，但它依赖「留存」这件事先做出来：现在没有跨运行的内容要放，造一个空的目录约定没有意义。所以顺序是：先做留存，用户空间随它一起出现。
+**为什么「用户空间」现在不做。** 同类工具（pi 的 `~/.pi`、Claude Code 的 `~/.claude`、Codex 的 `~/.codex`）都有，里面是四类东西：配置、凭据、跨项目的内容（skills、AGENTS.md、扩展）、运行状态（会话、历史、日志）。我们这四类都有，只是散落：配置与凭据是宿主文件，运行状态按会话保存（位置见 Host/README.md「配置与会话」），Library 的内容编进二进制。把它们收到一个约定的位置，是对的方向，但它依赖「留存」这件事先做出来：现在没有跨运行的内容要放，造一个空的目录约定没有意义。所以顺序是：先做留存，用户空间随它一起出现。
 
 
 ## 制造闭环
@@ -144,16 +161,17 @@ croon-app 拥有模型适配、Directory 与 Docker 文件执行、Library 与 A
 
 按需求或实测结果启动，不作为近期实验的统一前置条件：
 
-- **持续对话**：任务需要运行中追加输入、反问或干预时，推进经 socket 的 root entry、软打断与硬打断；场景见 croon:docs/Kernel/README.md「W0 持续对话」。
+- **前端与多轮交互**从一次运行中的澄清开始。用户看到主体的反问，经 Definition 声明的 Port 补充材料，由原实例继续处理。用这个场景决定 App 怎样按权利开放观察、输入和控制，再定传输方式与上下文管理。`resume` 沿 Journal 续做已有运行。
 - **运行成本**：测到对应成本妨碍目标任务时再优化。Checkpoint 降低重放计算成本，存储去重降低内容库增长，执行提供者与调度优化降低调用开销和等待成本，分别验收；tombstone 的处理须维持 Directory 的退役保证。
-- **Charter**：开始组织型实验前补齐「制造闭环」Charter 版所依赖的正确性缺口。
+- **Charter**：以一个确实需要固定分权的组织为验收场景。开始组织型实验前补齐「制造闭环」Charter 版所依赖的正确性缺口；单个 Agent 对外作为工具不等它。
+- **内容寻址的不受信 Language**：属于上游的独立方向，见 croon:docs/Kernel/Language.md「待定」。内容相同不能证明求值器可信；计量、求值器违约与宿主故障分别怎样处置，由上游定，App 不另立契约。
 - **实验台做成 Definition**：任务协议、评价与记录方法稳定后，把已有实验能力组合成专门的 Definition，跟它说话就能提实验、看结果；复用通用交办与固定检查器，被测主体不自评。
 - **场景同步工具**：随实际改动减少 Interface、工具说明等派生数据的手工维护；关键行为预期保留独立来源与明确断言，不由被测实现自动生成。不作为实验的前置大项目。
 - 联网：可用性要它。做法在 croon:docs/Kernel/Reference.md「通道」与待定；现在不联网。
 - 历史管理：执行恢复依赖 Journal 的分叉待定。
 - **语言摩擦对照**：当近期实验反复撞到 Lang0 的表达限制时，为同一场景分别写普通 Python 与 Lang0，逐处说明差异及其原因，检查是否存在未报告的语义变化。模型完成能力的量化按 Experiments.md 与「测试」推进。
 - Provider 的管理面：KV Cache 的管理、推理的控制面。前缀复用现在只能在基础设施一侧做，经 HTTP 够不到；线索见 croon:docs/Kernel/Port.md 的待定。排在靠后。
-- 生态入口：经 MCP、A2A 接别的框架与客户端，Croon 作调用方或被调用方。依赖联网与系统边界，排在阶段 2、3；见 croon:docs/Kernel/README.md「待定」里的「系统边界」与 croon:docs/Kernel/Plugin.md「待定」。
+- 本地 stdio MCP 由客户端启动本机子进程，在「下一步」验收。远程 MCP 与 A2A 等跨系统接入随联网、身份与凭据的实际场景推进，见 croon:docs/Kernel/README.md「待定」里的「系统边界」与 croon:docs/Kernel/Plugin.md「待定」。
 - 独立软件交付：是否把一份 Application 连同它的 Definition、资源、界面与 Kernel 运行时一起打包，安装后即可使用；运行权利与凭据由部署时的根接入。内嵌运行时、容器依赖、安装与升级，等首个 Application 的场景明确再定。 打包时 App 的包与用户的包要分层，见 Library/Packages.md「目录与留存」。
 
 参考：README.md；Directory/README.md；Model/README.md；Library/README.md；Library/Runtime.md；Library/Organization.md；Library/Presets.md。

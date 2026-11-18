@@ -9,7 +9,7 @@ import croon
 from croon import Inbox
 from library.directory import Exec
 from library.kernel import Pack
-from library.agents import Done, build, infer_interface, interface_of, run_agent, unsupplied
+from library.agents import Done, build, infer_tool, run_agent, unsupplied
 from library.workspace import Workspace, adopt, entry, execute, fork, offer, read_text_at, tree
 
 
@@ -69,7 +69,8 @@ def manager_tools(ws: Workspace, home: Workspace, exec: Exec, ports: Any, back: 
 
     def load(name: str, source: str, mods: str) -> str:
         """构造一个 Agent 并载入工具表，返回它在工具表里的名字。"""
-        interface = infer_interface(infer, source, mods)
+        inferred = infer_tool(infer, source, mods, ["snapshot"])
+        interface = inferred["interface"]
         missing = unsupplied(interface, supply)
         if missing:
             raise RuntimeError(f"它要 {', '.join(missing)}，交办的一方给不了：先改源码去掉这些 Port")
@@ -83,15 +84,6 @@ def manager_tools(ws: Workspace, home: Workspace, exec: Exec, ports: Any, back: 
         signature = interface["signature"]
         takes = _has(signature["in"], "snapshot")
         gives = _has(signature["out"], "snapshot")
-        props = {}
-        required = []
-        for key in signature["in"].get("properties", {}):
-            if key != "snapshot":
-                props[key] = signature["in"]["properties"][key]
-        for key in signature["in"].get("required", []):
-            if key != "snapshot":
-                required.append(key)
-        schema = {"type": "object", "properties": props, "required": required, "additionalProperties": False}
         description = interface["description"]
         if gives:
             description = description + " 交回改过的目录：结果里的 name 与 diff 给你审，满意后用 merge(name) 并入。"
@@ -116,7 +108,7 @@ def manager_tools(ws: Workspace, home: Workspace, exec: Exec, ports: Any, back: 
             rest = {k: v for k, v in got.items() if k != "snapshot"}
             return {"result": rest, "name": label, "diff": d["stdout"]}
 
-        tools.append({"name": unique, "description": description, "input": schema, "call": call})
+        tools.append({"name": unique, "description": description, "input": inferred["tool_input"], "call": call})
         return unique
 
     for name in sorted(listed.keys()):

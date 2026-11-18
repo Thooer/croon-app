@@ -2,7 +2,8 @@
 //! 用法：
 //!   croon-app run    [--config 配置] [--session 名字] --repo 仓库 --out 结果目录 [--tools 清单] [--quiet] 任务
 //!   croon-app resume [--config 配置] --session 名字 --out 结果目录 [--quiet]
-//!   croon-app exec   [--config 配置] [--session 名字] --source 源码文件 --input JSON [--snapshot 目录] --out 结果目录 [--quiet]
+//!   croon-app describe --source 源码文件 [--tool 注册名 [--snapshot 目录]]
+//!   croon-app exec   [--config 配置] [--session 名字] --source 源码文件 --input JSON [--snapshot 目录] --out 结果目录 [--json] [--quiet]
 //! 没给 --config 时找 $XDG_CONFIG_HOME/croon/config.json（默认 ~/.config/croon/config.json）。
 //! 参考：docs/Host/README.md（配置与会话、客户端）。
 
@@ -12,7 +13,8 @@ use std::process::ExitCode;
 const USAGE: &str = "用法：
   croon-app run    [--config 配置] [--session 名字] --repo 仓库 --out 结果目录 [--tools 清单] [--quiet] 任务
   croon-app resume [--config 配置] --session 名字 --out 结果目录 [--quiet]
-  croon-app exec   [--config 配置] [--session 名字] --source 源码文件 --input JSON [--snapshot 目录] --out 结果目录 [--quiet]
+  croon-app describe --source 源码文件 [--tool 注册名 [--snapshot 目录]]
+  croon-app exec   [--config 配置] [--session 名字] --source 源码文件 --input JSON [--snapshot 目录] --out 结果目录 [--json] [--quiet]
 
 --config 不给时找 ~/.config/croon/config.json；每次运行的目录放在 ~/.local/state/croon/sessions/<名字>/。";
 
@@ -23,28 +25,35 @@ struct Args {
     repo: Option<PathBuf>,
     out: Option<PathBuf>,
     tools: Option<PathBuf>,
+    tool_name: Option<String>,
     source: Option<PathBuf>,
     input: Option<String>,
     task: Option<String>,
     quiet: bool,
+    json: bool,
 }
 
-fn parse(rest: &[String]) -> Result<Args, String> {
+fn parse(command: &str, rest: &[String]) -> Result<Args, String> {
     let mut a = Args::default();
     let mut it = rest.iter();
     let value = |it: &mut std::slice::Iter<String>, flag: &str| {
         it.next().cloned().ok_or_else(|| format!("{flag} 后面要跟一个值"))
     };
     while let Some(arg) = it.next() {
+        if command == "describe" && !matches!(arg.as_str(), "--source" | "--tool" | "--snapshot") {
+            return Err(format!("describe 不收 {arg}"));
+        }
         match arg.as_str() {
             "--config" => a.config = Some(value(&mut it, arg)?.into()),
             "--session" => a.session = Some(value(&mut it, arg)?),
             "--repo" | "--snapshot" => a.repo = Some(value(&mut it, arg)?.into()),
             "--out" => a.out = Some(value(&mut it, arg)?.into()),
             "--tools" => a.tools = Some(value(&mut it, arg)?.into()),
+            "--tool" if command == "describe" => a.tool_name = Some(value(&mut it, arg)?),
             "--source" => a.source = Some(value(&mut it, arg)?.into()),
             "--input" => a.input = Some(value(&mut it, arg)?),
             "--quiet" => a.quiet = true,
+            "--json" => a.json = true,
             s if s.starts_with("--") => return Err(format!("不认识的参数 {s}")),
             _ if a.task.is_none() => a.task = Some(arg.clone()),
             _ => return Err(format!("多出来的参数 {arg:?}（任务要写成一个整体，加引号）")),
@@ -57,6 +66,41 @@ fn parse(rest: &[String]) -> Result<Args, String> {
 fn missing(what: &str) -> ExitCode {
     eprintln!("缺少 {what}\n\n{USAGE}");
     ExitCode::from(2)
+}
+
+fn read_source(path: &Path) -> Result<String, ExitCode> {
+    std::fs::read_to_string(path).map_err(|e| {
+        eprintln!("读 {} 失败：{e}", path.display());
+        ExitCode::from(2)
+    })
+}
+
+fn describe(args: &Args) -> ExitCode {
+    let Some(path) = args.source.as_deref() else {
+        return missing("--source 源码文件");
+    };
+    if args.repo.is_some() && args.tool_name.is_none() {
+        eprintln!("查询绑定目录的工具说明时，请给 --tool 注册名");
+        return ExitCode::from(2);
+    }
+    let source = match read_source(path) {
+        Ok(s) => s,
+        Err(code) => return code,
+    };
+    let result = host::describe(&source).and_then(|interface| match &args.tool_name {
+        Some(name) => host::describe_tool(&interface, name, args.repo.as_deref()),
+        None => Ok(interface),
+    });
+    match result {
+        Ok(description) => {
+            println!("{description}");
+            ExitCode::SUCCESS
+        }
+        Err(e) => {
+            eprintln!("{e}");
+            ExitCode::FAILURE
+        }
+    }
 }
 
 /// 自动取的会话名：UTC 的日期时间加任务的短哈希。同一秒里同一个任务的重复不会撞：哈希之后再加序号。
@@ -97,17 +141,24 @@ fn auto_name(task: &str, sessions: &Path) -> String {
 fn main() -> ExitCode {
     let args: Vec<String> = std::env::args().skip(1).collect();
     let command = args.first().map(String::as_str).unwrap_or("");
-    if !matches!(command, "run" | "resume" | "exec") {
+    if !matches!(command, "run" | "resume" | "exec" | "describe") {
         eprintln!("{USAGE}");
         return ExitCode::from(2);
     }
-    let a = match parse(&args[1..]) {
+    let a = match parse(command, &args[1..]) {
         Ok(a) => a,
         Err(e) => {
             eprintln!("{e}\n\n{USAGE}");
             return ExitCode::from(2);
         }
     };
+    if command == "describe" {
+        return describe(&a);
+    }
+    if a.json && command != "exec" {
+        eprintln!("--json 只用于 exec");
+        return ExitCode::from(2);
+    }
     let resuming = command == "resume";
     let out = a.out.clone();
     if resuming && (a.repo.is_some() || a.task.is_some() || a.tools.is_some() || a.source.is_some() || a.input.is_some()) {
@@ -214,12 +265,9 @@ fn main() -> ExitCode {
             let (Some(source), Some(input)) = (a.source.clone(), a.input.clone()) else {
                 return missing("--source 与 --input");
             };
-            let source = match std::fs::read_to_string(&source) {
+            let source = match read_source(&source) {
                 Ok(s) => s,
-                Err(e) => {
-                    eprintln!("读 {} 失败：{e}", source.display());
-                    return ExitCode::from(2);
-                }
+                Err(code) => return code,
             };
             let input = match serde_json::from_str(&input) {
                 Ok(v) => v,
@@ -238,8 +286,16 @@ fn main() -> ExitCode {
         }
     };
     match result {
+        Ok(finished) if a.json => {
+            println!("{}", finished.value);
+            ExitCode::SUCCESS
+        }
         Ok(finished) => {
-            println!("{}", finished.summary);
+            if let Some(summary) = finished.value.get("summary").and_then(serde_json::Value::as_str) {
+                println!("{summary}");
+            } else {
+                println!("{}", finished.value);
+            }
             if !finished.snapshot.is_empty() {
                 println!("结果：{}（{}）", out.display(), finished.snapshot);
             }

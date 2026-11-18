@@ -12,6 +12,10 @@ const BUDGETS: Budgets = Budgets {
 };
 
 fn infer(source: &str) -> Json {
+    infer_bound(source, None)
+}
+
+fn infer_bound(source: &str, bound: Option<&[&str]>) -> Json {
     let root = std::env::temp_dir().join(format!(
         "croon-infer-test-{}-{}",
         std::process::id(),
@@ -22,7 +26,10 @@ fn infer(source: &str) -> Json {
     ));
     let store = Rc::new(ContentStore::open(root.clone()).unwrap());
     let content = Rc::new(Content::from_inputs(store, &[], BUDGETS).unwrap());
-    let value = json!({"language": "lang0@1", "body": {"source": source}});
+    let mut value = json!({"language": "lang0@1", "body": {"source": source}});
+    if let Some(names) = bound {
+        value["bound_inputs"] = json!(names);
+    }
     let call = Call {
         instance: "i",
         generation: 0,
@@ -45,8 +52,33 @@ fn a_valid_main_gives_its_interface() {
     let out = infer("def main(x: int) -> int:\n    \"\"\"加一。\"\"\"\n    return x + 1\n");
     assert_eq!(out["ok"], true, "{out}");
     let interface = &out["value"]["interface"];
+    assert!(out["value"].get("tool_input").is_none());
     assert_eq!(interface["description"], "加一。");
     assert_eq!(interface["signature"]["in"]["required"], json!(["x"]));
+}
+
+#[test]
+fn registration_projects_only_bound_top_level_inputs_and_preserves_the_interface() {
+    let source = r#"from typing import TypedDict
+Row = TypedDict("Row", {"snapshot": str})
+
+def main(rows: list[Row], snapshot: str, note: str = "") -> int:
+    """数行。
+
+    Args:
+        rows: 待计数的行。
+    """
+    return len(rows)
+"#;
+    let full = infer(source)["value"]["interface"].clone();
+    assert_eq!(full["signature"]["in"]["required"], json!(["rows", "snapshot"]));
+    let out = infer_bound(source, Some(&["snapshot", "note", "absent"]));
+    assert_eq!(out["value"]["interface"], full);
+    let input = &out["value"]["tool_input"];
+    assert_eq!(input["required"], json!(["rows"]));
+    assert_eq!(input["properties"], json!({"rows": full["signature"]["in"]["properties"]["rows"]}));
+    assert_eq!(input["properties"]["rows"]["description"], "待计数的行。");
+    assert_eq!(input["additionalProperties"], false);
 }
 
 #[test]

@@ -125,7 +125,7 @@ fn w0_constructs_an_agent_delegates_to_it_and_merges_the_result() {
     let recorded = host::run(&settings, assembly, &repo, task, &out1).unwrap_or_else(|e| {
         panic!("任务没有完成：{e}");
     });
-    assert_eq!(recorded.summary, "已造好 writer 并修好 a.py");
+    assert_eq!(recorded.value["summary"], "已造好 writer 并修好 a.py");
     assert_eq!(fs::read_to_string(out1.join("a.py")).unwrap(), "fixed\n");
     assert_eq!(
         fs::read_to_string(repo.join("a.py")).unwrap(),
@@ -139,5 +139,5 @@ fn w0_constructs_an_agent_delegates_to_it_and_merges_the_result() {
     let out2 = temp.root.join("out2");
     let played = host::run(&settings, host::Assembly::default(), &repo, task, &out2).unwrap();
     assert_eq!(played.snapshot, recorded.snapshot);
-    assert_eq!(played.summary, recorded.summary);
+    assert_eq!(played.value, recorded.value);
 }

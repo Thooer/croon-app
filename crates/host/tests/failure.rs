@@ -124,7 +124,7 @@ fn a_host_fault_ends_the_run_and_a_rerun_reopens_and_finishes() {
         &out2,
     )
     .unwrap_or_else(|e| panic!("重开后应当跑完：{e}"));
-    assert_eq!(done.summary, "已修好 a.py");
+    assert_eq!(done.value["summary"], "已修好 a.py");
     assert_eq!(fs::read_to_string(out2.join("a.py")).unwrap(), "fixed\n");
 }
 
@@ -183,7 +183,7 @@ fn run_refuses_a_directory_that_already_has_a_run_and_resume_needs_one() {
         .expect("没有运行可续做");
     assert!(none.0.contains("用 run"), "{none}");
 
-    host::run(&settings, scripted(&system), &repo, "修好 a.py", &temp.root.join("out1")).unwrap();
+    let done = host::run(&settings, scripted(&system), &repo, "修好 a.py", &temp.root.join("out1")).unwrap();
     let again = host::run(&settings, scripted(&system), &repo, "修好 a.py", &temp.root.join("out2"))
         .err()
         .expect("已有运行时 run 要报错");
@@ -193,7 +193,7 @@ fn run_refuses_a_directory_that_already_has_a_run_and_resume_needs_one() {
     // 已经结束的运行再 resume，得到同样的结果；结果目录是空的也行。
     fs::create_dir(temp.root.join("out3")).unwrap();
     let same = host::resume(&settings, scripted(&system), &temp.root.join("out3")).unwrap();
-    assert_eq!(same.summary, "已修好 a.py");
+    assert_eq!(same.value, done.value);
 }
 
 #[test]

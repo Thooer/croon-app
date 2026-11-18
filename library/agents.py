@@ -36,10 +36,17 @@ def unsupplied(interface: Any, supply: Any) -> list[str]:
     return out
 
 
+def infer_tool(infer: Infer, source: str, modules: str, bound_inputs: list[str] | None = None) -> Any:
+    """推出完整 Interface。有注册方提供的输入时，另给出模型填写的 tool_input。"""
+    request = {"language": "lang0@1", "body": {"source": source, "modules": modules}}
+    if bound_inputs is not None:
+        request["bound_inputs"] = bound_inputs
+    return croon.send(infer, request, dependencies=[modules]).value
+
+
 def infer_interface(infer: Infer, source: str, modules: str) -> Any:
-    """从源码推出 Interface；写错的源码得到 Lang0 的诊断。纯计算，没有副作用。"""
-    body = {"source": source, "modules": modules}
-    return croon.send(infer, {"language": "lang0@1", "body": body}, dependencies=[modules]).value["interface"]
+    """从源码推出完整 Interface。"""
+    return infer_tool(infer, source, modules)["interface"]
 
 
 def build(pack: Pack, construct: Construct, source: str, modules: str, interface: Any) -> str:

@@ -43,7 +43,7 @@ App 是宿主这一层。它在系统外装起内核、lang0、模型服务与�
 
 你的目录只被导入，不被写回，结果只出现在你指定的新目录里。每一条命令都在一个新的容器里执行：没有网络，根文件系统只读，丢掉了全部 Linux capabilities，CPU、内存与进程数都有上限。宿主用自己的配置调用模型服务，不把凭据传给 Agent。但任务目录会整份导入，放在里面的密钥文件也会成为输入；`.gitignore` 不是导入时的过滤规则。
 
-每一次模型往来都可以录下来，日后原样回放，一次真实的运行由此变成一个确定的测试。运行中断之后，`resume` 沿着 Journal 接着走。
+运行中断后，`resume` 会从这次运行的 Journal 里取回已完成的步骤。模型的请求和回答还可以另存成录像，供新运行在发出相同请求时取回当时的回答。
 
 ### 预置
 
@@ -162,6 +162,35 @@ target/debug/croon-app exec --source /tmp/demo/m.py --input '{"n":41}' --out /tm
 ```
 
 打印 `42`。`--out` 必须给，但这个例子没有目录产物，不会建出 `/tmp/demo/o`。源码里要是问了模型，那一次调用会失败，说这次运行没有配置模型。
+
+### 从自己的程序调用
+
+从一个计数工具开始。完成上面的构建和镜像准备后，在仓库根运行这两条命令就能看到自己程序要处理的两份 JSON。这个工具只做计算，无需模型配置。
+
+```sh
+tool_source=spike/external-tool/tally.py
+target/debug/croon-app describe --source "$tool_source" --tool count_passing
+target/debug/croon-app exec --source "$tool_source" --json \
+  --input '{"scores":[3,9,8],"minimum":8}' --out /tmp/croon-tally-result
+```
+
+第一条给出 `name`、`description` 和 `input`。接入 OpenAI 兼容的工具调用时，直接把 `input` 用作函数的 `parameters`。收到对 `count_passing` 的调用后，把模型给的参数交给第二条命令。退出码为 0 时解析整个 stdout，这一次读到的是 `{"count":2,"summary":"达标 2 项"}`。退出码非零时，从 stderr 取诊断。
+
+要注册自己的 Agent，换掉源码路径和注册名即可。`spike/external-tool/call.py` 里的 `bind` 演示了如何把上面两步接进 Python 程序。运行 `python3 -B spike/external-tool/call.py target/debug/croon-app` 可以同时试正常输入和错类型输入。
+
+处理目录的 Agent 也能用同一个 `bind` 注册。上文 W0 编写的源码原样放在 `spike/external-tool/fix_add_agent.py`。用 `describe --source` 查看它的完整接口，可以看到 `task` 和 `snapshot`。下面的调用方在注册和执行时都用 `--snapshot` 指定输入目录，注册给模型的参数就只剩 `task`。这个例子会调用真实模型，先完成上手第 3 步的配置。
+
+```sh
+work=$(mktemp -d)
+mkdir "$work/input"
+printf 'def add(a, b):\n    return a - b\n' > "$work/input/a.py"
+python3 -B spike/external-tool/repair.py target/debug/croon-app \
+  --snapshot "$work/input" --out "$work/result" \
+  '修复 a.py，使 add 返回两个参数的和。验证正数、负数和零。'
+diff -u "$work/input/a.py" "$work/result/a.py"
+```
+
+`repair.py` 把工具说明打印到 stderr，把帮手的结束值打印到 stdout。退出码为 0 表示程序取得了结束值。要判断修复是否完成，看 `diff` 和你自己的测试。一项改动核对满意后再采用。每次调用需要交回目录的工具时，给 `--out` 一个新路径或空目录。
 
 ## 常见问题
 

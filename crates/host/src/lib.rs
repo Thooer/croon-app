@@ -19,7 +19,7 @@ pub mod infer;
 pub mod library;
 mod progress;
 
-use croon_port::store::{Budgets, Content};
+use croon_port::store::{Budgets, Content, ContentStore};
 use croon_port::{Bundle, CheckError, HostError, Port, Read};
 use kernel::host::{Config as KernelConfig, Language};
 pub use kernel::host::{Fault, FaultHook};
@@ -431,9 +431,9 @@ pub struct Assembly {
     pub quiet: bool,
 }
 
-/// 一次运行的结果：W0 的总结与它最终采用的目录 Bundle。
+/// 一次运行的完整结束值与物化的目录 Bundle ID（无目录时为空）。
 pub struct Finished {
-    pub summary: String,
+    pub value: Json,
     pub snapshot: String,
 }
 
@@ -460,30 +460,77 @@ impl Read for Code<'_> {
     }
 }
 
-/// 把家目录装进临时目录，再导入成目录 Bundle：顶层是 library/ 与 tools.json，见 docs/Library/Packages.md。
-fn home_bundle(content: &Content, limits: directory::Limits, tools: Option<&Json>) -> Result<String> {
-    let root = std::env::temp_dir().join(format!(
-        "croon-host-library-{}-{}",
-        std::process::id(),
-        SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .map(|d| d.as_nanos())
-            .unwrap_or(0)
-    ));
-    library::install(root.join("library"));
-    match tools {
-        Some(tools) => library::write_home_tools(&root, tools).map_err(Error)?,
-        None => library::install_home_tools(&root),
+struct Scratch(PathBuf);
+
+impl Scratch {
+    fn new() -> Result<Self> {
+        use std::os::unix::fs::DirBuilderExt;
+        use std::sync::atomic::{AtomicU64, Ordering};
+
+        static NEXT: AtomicU64 = AtomicU64::new(0);
+        loop {
+            let id = NEXT.fetch_add(1, Ordering::Relaxed);
+            let name = format!("croon-host-{}-{id}", std::process::id());
+            let path = std::env::temp_dir().join(name);
+            match std::fs::DirBuilder::new().mode(0o700).create(&path) {
+                Ok(()) => return Ok(Self(path)),
+                Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => continue,
+                Err(e) => return Err(e.into()),
+            }
+        }
     }
-    let imported = directory::import(content, &root, limits);
-    let _ = std::fs::remove_dir_all(&root);
-    Ok(imported?)
+}
+
+impl Drop for Scratch {
+    fn drop(&mut self) {
+        let _ = std::fs::remove_dir_all(&self.0);
+    }
+}
+
+/// 把家目录导入成目录 Bundle：顶层是 library/ 与 tools.json，见 docs/Library/Packages.md。
+fn home_bundle(content: &Content, limits: directory::Limits, tools: Option<&Json>) -> Result<String> {
+    let root = Scratch::new()?;
+    library::install(root.0.join("library"));
+    match tools {
+        Some(tools) => library::write_home_tools(&root.0, tools).map_err(Error)?,
+        None => library::install_home_tools(&root.0),
+    }
+    Ok(directory::import(content, &root.0, limits)?)
+}
+
+/// 用与 `exec` 相同的 Library 与源码推导 Interface。查询使用临时内容库。
+pub fn describe(source: &str) -> Result<Json> {
+    let scratch = Scratch::new()?;
+    let store = ContentStore::open(&scratch.0).map_err(|e| Error(e.to_string()))?;
+    let content = Content::from_inputs(Rc::new(store), &[], BUDGETS)?;
+    let limits = directory::Limits { nodes: BUDGETS.nodes, bytes: BUDGETS.write_bytes };
+    let modules = home_bundle(&content, limits, None)?;
+    Ok(source_definition(&content, source, &modules)?["interface"].take())
+}
+
+/// 命令行注册的工具说明。目录在调用时才导入，此处只据接线推导参数。
+pub fn describe_tool(interface: &Json, name: &str, snapshot: Option<&Path>) -> Result<Json> {
+    let repo = input_directory(interface, snapshot)?;
+    let input = infer::tool_input(interface, repo.map(|_| "snapshot"));
+    Ok(json!({"name": name, "description": interface["description"], "input": input}))
+}
+
+fn input_directory<'a>(interface: &Json, repo: Option<&'a Path>) -> Result<Option<&'a Path>> {
+    if interface["signature"]["in"]["properties"].get("snapshot").is_none() {
+        return Ok(None);
+    }
+    repo.map(Some).ok_or_else(|| Error("这份源码要 snapshot：用 --snapshot 给一个目录".into()))
+}
+
+fn source_definition(content: &Content, source: &str, modules: &str) -> Result<Json> {
+    let mut def = json!({"language": "lang0@1", "body": {"source": source, "modules": modules}});
+    def["interface"] = lang0::interface(&def, &Code(content))?;
+    Ok(def)
 }
 
 /// 用 Library 里的一个模块作 body，推出它的 Interface，存成完整 Definition Bundle。
 fn definition(content: &Content, source: &str, modules: &str) -> Result<String> {
-    let mut def = json!({"language": "lang0@1", "body": {"source": source, "modules": modules}});
-    def["interface"] = lang0::interface(&def, &Code(content))?;
+    let def = source_definition(content, source, modules)?;
     let raw = content.put_json(&def)?;
     Ok(content.pack(&raw, &[modules.to_owned()])?)
 }
@@ -716,13 +763,11 @@ fn drive(
                     let interface = croon_interface(&content, &definition)?;
                     let mut input = input;
                     let mut dependencies = vec![home.clone()];
-                    let takes = interface["signature"]["in"]["properties"].get("snapshot").is_some();
-                    if let Some(repo) = repo.filter(|_| takes) {
-                        let snapshot = directory::import(&content, &repo, settings.limits())?;
-                        input["snapshot"] = json!(snapshot);
+                    if let Some(repo) = input_directory(&interface, repo.as_deref())? {
+                        let fields = input.as_object_mut().ok_or_else(|| Error("--input 应为 JSON 对象".into()))?;
+                        let snapshot = directory::import(&content, repo, settings.limits())?;
+                        fields.insert("snapshot".into(), json!(snapshot));
                         dependencies.push(snapshot);
-                    } else if takes {
-                        return Err(Error("这份源码要 snapshot：用 --snapshot 给一个目录".into()));
                     }
                     let gives = interface["signature"]["out"]["properties"].get("snapshot").is_some();
                     Job {
@@ -843,10 +888,7 @@ fn drive(
     }
     let value = &outcome["value"];
     let finished = Finished {
-        summary: match value.get("summary") {
-            Some(summary) => text(value, "summary").map_err(|_| Error(format!("summary 要是字符串：{summary}")))?,
-            None => value.to_string(),
-        },
+        value: value.clone(),
         snapshot: if job.directory.is_empty() {
             String::new()
         } else {

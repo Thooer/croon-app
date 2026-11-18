@@ -7,6 +7,7 @@
 //! 调用方要知道的：
 //!
 //! - 草稿的 `body.modules` 要在本次交付的 dependencies 里，否则读不到模块源码，以 use 失败交回。
+//! - 提供 `bound_inputs` 时，结果同时含 `tool_input`，供调用方注册工具。`interface` 始终是完整接口。
 //! - 模块目录的 Tree 要在本次交付的 dependencies 里；列出模块时某个模块写错了，它的 description 写诊断的第一行，不拦下整张表。
 //! - Lang0 的诊断（`路径:行:列: 说明`）原样作 use 失败交回；装载与资源故障是宿主故障，停下调用者。
 //! - 通道是 Discardable：没有世界效果，重做得到同样的结果。
@@ -46,8 +47,27 @@ fn listing(modules: &str, read: &dyn croon_port::Read) -> Result<Vec<Json>, Chec
     Ok(out)
 }
 
-fn success(interface: Json) -> Json {
-    json!({"ok": true, "value": {"interface": interface}, "dependencies": []})
+/// 给模型看的参数。绑定只作用于顶层入参，保留其余 Schema 内容，包括参数描述与嵌套约束。
+pub(crate) fn tool_input<'a>(interface: &Json, bound: impl IntoIterator<Item = &'a str>) -> Json {
+    let mut input = interface["signature"]["in"].clone();
+    for name in bound {
+        if let Some(fields) = input.get_mut("properties").and_then(Json::as_object_mut) {
+            fields.remove(name);
+        }
+        if let Some(required) = input.get_mut("required").and_then(Json::as_array_mut) {
+            required.retain(|field| field != name);
+        }
+    }
+    input
+}
+
+fn success(interface: Json, bound: Option<&Vec<Json>>) -> Json {
+    let mut value = json!({});
+    if let Some(names) = bound {
+        value["tool_input"] = tool_input(&interface, names.iter().filter_map(Json::as_str));
+    }
+    value["interface"] = interface;
+    json!({"ok": true, "value": value, "dependencies": []})
 }
 
 fn rejected(message: String) -> Json {
@@ -79,7 +99,7 @@ impl Port for Infer {
         } else {
             let draft = json!({"language": call.value["language"], "body": call.value["body"]});
             match lang0::interface(&draft, &read) {
-                Ok(interface) => success(interface),
+                Ok(interface) => success(interface, call.value["bound_inputs"].as_array()),
                 Err(CheckError::Rejected(message)) => rejected(message),
                 Err(CheckError::Host(error)) => return Err(error),
             }

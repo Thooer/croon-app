@@ -33,6 +33,7 @@
 | 怎样组织多个主体、交接与历史；做法什么时候走动态、什么时候走 Handoff | Library/Organization.md |
 | 预置 Charter 与 Application 收什么 | Library/Presets.md |
 | 根怎样装起一个系统、运行一个 Definition、取回与采用结果 | Host/README.md |
+| 另一个程序怎样查 Agent 的参数并取得完整的 JSON 结果 | Host/README.md「从另一个程序调用」 |
 | 运行中怎样把源码变成一份构造得了的 Definition | Host/README.md 的「构造的推导」；Library/Runtime.md 的「工具」里的「构造并入载入」 |
 | 工作区是什么、谁是它的主人、怎样并入 | Library/Runtime.md 的「工作区」 |
 | Library 的某个场景应当跑出什么 Journal | Library/Scenarios/ |

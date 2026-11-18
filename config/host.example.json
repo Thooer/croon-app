@@ -1,6 +1,6 @@
 {
   "model": {
-    "provider": "/绝对路径/croon-app/config/agent-provider.json",
+    "provider": "/你的主目录/.config/croon/agent-provider.json",
     "record": true
   }
 }

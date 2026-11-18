@@ -955,6 +955,7 @@
     },
     "sha256:lw0infer": {
       "language": "lang0@1",
+      "bound_inputs": ["snapshot"],
       "body": {
         "source": "\"\"\"S：改代码的 Agent，在显式交付的目录里改，交回总结与产物。\"\"\"\nfrom typing import TypedDict\nimport croon\nfrom library.model import Generate\nfrom library.directory import Exec\nfrom library.files import file_tools\nfrom library.react import react\nfrom library.workspace import workspace\n\nOut = TypedDict(\"Out\", {\"summary\": str, \"snapshot\": str})\n\nSYSTEM = \"你在 /work 里改代码。改完用一两句话说清改了什么。\"\n\n\ndef main(task: str, snapshot: str, engine: Generate, exec: Exec) -> Out:\n    \"\"\"改一处代码，交回总结与改过的 Bundle。\"\"\"\n    ws = workspace(snapshot)\n    summary = react(engine, file_tools(exec, ws), [{\"role\": \"user\", \"text\": task}], SYSTEM)\n    return croon.deliver({\"summary\": summary, \"snapshot\": ws[\"current\"]}, [ws[\"current\"]])\n",
         "modules": "sha256:lhome"
@@ -1758,6 +1759,7 @@
               "outcome": {
                 "ok": true,
                 "value": {
+                  "tool_input": {"$block": "library.scenario.delegate#/values/sha256:lw0send0/tools/3/input"},
                   "interface": {
                     "description": "改一处代码，交回总结与改过的 Bundle。",
                     "signature": {

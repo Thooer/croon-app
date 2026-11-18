@@ -96,6 +96,7 @@ S_SOURCE = (ROOT / "library" / "s.py").read_text()
 # 家目录里的工具清单：规范文本，与宿主放进家目录的一致。
 TOOLS_JSON = json.loads((ROOT / "home" / "tools.json").read_text())
 S_INTERFACE = values["sha256:ls"]["$bundle"]["interface"]
+S_TOOL_INPUT = next(t["input"] for t in values["sha256:lw0send0"]["tools"] if t["name"] == "s")
 S_IN = {"task": "修好 a.py", "snapshot": "sha256:lrepo"}
 SCRIPTS = {
     "s": ({"0": llm("", [{"id": "c1", "name": "write_file", "input": {"path": "a.py", "content": "fixed\n"}}]),
@@ -103,7 +104,7 @@ SCRIPTS = {
            "2": llm("改好了 a.py", [])},
           S_IN, {"engine": "port", "exec": "port"}, {}),
     # W0：启动时读清单，把清单里的 s 构造出来载入（读源码、infer、pack、construct），模型直接调用 s：实例化、登记、取、diff，再 merge。
-    "w0": ({"0": ok({"interface": S_INTERFACE}),
+    "w0": ({"0": ok({"interface": S_INTERFACE, "tool_input": S_TOOL_INPUT}),
             "1": ok({"id": "sha256:ls"}),
             "2": ok({"id": "sha256:ls"}),
             "3": llm("", [{"id": "c1", "name": "s", "input": {"task": "修好 a.py"}}]),

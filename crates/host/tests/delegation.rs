@@ -37,7 +37,7 @@ fn delegation(three_way: bool) {
     };
     let out1 = temp.root.join("out1");
     let recorded = host::run(&settings, assembly, &repo, task, &out1).unwrap();
-    assert_eq!(recorded.summary, "已修好 a.py");
+    assert_eq!(recorded.value["summary"], "已修好 a.py");
     assert_eq!(fs::read_to_string(out1.join("a.py")).unwrap(), "fixed\n");
     if three_way {
         assert_eq!(fs::read_to_string(out1.join("o.txt")).unwrap(), "ours\n");
@@ -56,7 +56,7 @@ fn delegation(three_way: bool) {
     let out2 = temp.root.join("out2");
     let replayed = host::run(&settings, host::Assembly::default(), &repo, task, &out2).unwrap();
     assert_eq!(replayed.snapshot, recorded.snapshot);
-    assert_eq!(replayed.summary, recorded.summary);
+    assert_eq!(replayed.value, recorded.value);
 
     // 第三次：第一个系统的 Kernel 目录配空录像，任何一次模型调用都会失败，结果只能来自 Journal。
     let empty = temp.root.join("empty.json");

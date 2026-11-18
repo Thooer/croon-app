@@ -100,7 +100,7 @@ fn a_wrong_source_comes_back_as_a_diagnostic_and_a_fixed_one_runs() {
     };
     let out1 = temp.root.join("out1");
     let first = host::run(&settings, assembly, &repo, task, &out1).unwrap();
-    assert_eq!(first.summary, "已造好 helper");
+    assert_eq!(first.value["summary"], "已造好 helper");
     assert_eq!(
         fs::read_to_string(out1.join("a.py")).unwrap(),
         "broken\n",
@@ -139,5 +139,5 @@ fn a_wrong_source_comes_back_as_a_diagnostic_and_a_fixed_one_runs() {
     let out2 = temp.root.join("out2");
     let again = host::resume(&settings, host::Assembly::default(), &out2).unwrap();
     assert_eq!(again.snapshot, first.snapshot);
-    assert_eq!(again.summary, first.summary);
+    assert_eq!(again.value, first.value);
 }

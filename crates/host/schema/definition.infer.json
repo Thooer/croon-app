@@ -10,6 +10,11 @@
               "lang0@1"
             ]
           },
+          "bound_inputs": {
+            "type": "array",
+            "items": {"type": "string"},
+            "description": "调用方会提供的输入字段。有此项时同时交回模型填写的 tool_input，只去掉目标实际声明的字段。"
+          },
           "body": {
             "type": "object",
             "properties": {
@@ -63,6 +68,10 @@
           "properties": {
             "interface": {
               "type": "object"
+            },
+            "tool_input": {
+              "type": "object",
+              "description": "从 Interface 推出的工具参数 Schema，已计入 bound_inputs"
             }
           },
           "required": [

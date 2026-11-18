@@ -44,7 +44,7 @@ fn w0_runs_with_a_replayed_model_and_real_docker_and_recovers_from_the_journal()
     let settings = host::Settings::load(&temp.config(&system, &cassette)).unwrap();
     let out1 = temp.root.join("out1");
     let first = host::run(&settings, host::Assembly::default(), &repo, task, &out1).unwrap();
-    assert_eq!(first.summary, "改好了 a.py");
+    assert_eq!(first.value["summary"], "改好了 a.py");
     assert_eq!(fs::read_to_string(out1.join("a.py")).unwrap(), "fixed\n");
     assert_eq!(
         fs::read_to_string(repo.join("a.py")).unwrap(),
@@ -59,6 +59,6 @@ fn w0_runs_with_a_replayed_model_and_real_docker_and_recovers_from_the_journal()
     let out2 = temp.root.join("out2");
     let second = host::resume(&settings, host::Assembly::default(), &out2).unwrap();
     assert_eq!(second.snapshot, first.snapshot);
-    assert_eq!(second.summary, first.summary);
+    assert_eq!(second.value, first.value);
     assert_eq!(fs::read_to_string(out2.join("a.py")).unwrap(), "fixed\n");
 }

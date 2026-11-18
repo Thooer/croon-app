@@ -163,7 +163,7 @@ fn recovers_at_every_commit(make: impl Fn(String) -> Rc<dyn Port>, task: &str) {
                 Err(e) => panic!("{label}：恢复失败：{e}"),
             };
             assert_eq!(done.snapshot, baseline.snapshot, "{label}");
-            assert_eq!(done.summary, baseline.summary, "{label}");
+            assert_eq!(done.value, baseline.value, "{label}");
             assert_eq!(summary(&temp.kernel(&system)), expected, "{label}");
         }
     }

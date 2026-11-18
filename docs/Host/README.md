@@ -27,11 +27,19 @@
 调用方怎样与它沟通，由它的 Interface 决定，见 croon:docs/Kernel/Definition/README.md 的 Interface：
 
 - **输入**照 Signature 的 in：值从调用方给的 JSON 来；目录字段由调用方指定磁盘上的目录，宿主导入后把 Bundle ID 填进去，见 ../Library/Runtime.md 待定「目录字段的声明」；Library 目录由宿主填。W0 的输入是任务，是它的 Signature 的一种，不是宿主的约定。
-- **命令行**：`croon-app exec [--config 配置] --source 源码文件 --input 输入的 JSON [--snapshot 目录] --out 结果目录` 构造并运行一份源码，不经 W0。结束值打印在标准输出；结束值里没有目录时，`--out` 不会建出东西，但仍要给，它是这条命令的固定写法。它有自己的 Kernel 目录，所以不能与 `run` 共用配置里的 `kernel` 与 `system`，按「客户端」里 `resume` 的规则恢复，输入记在 root 的 Signature 里。实验的独立验收用它：从录像里取出造出来的源码，在检验方自己的输入上再跑一遍。
+- **命令行**：`croon-app exec [--config 配置] --source 源码文件 --input 输入的 JSON [--snapshot 目录] --out 结果目录 [--json]` 直接构造并运行一份源码。`--out` 是必填参数，只有结束值带目录时才会物化文件。它有自己的 Kernel 目录，所以不能与 `run` 共用配置里的 `kernel` 与 `system`，按「客户端」里 `resume` 的规则恢复，输入记在 root 的 Signature 里。实验的独立验收用它：从录像里取出造出来的源码，在检验方自己的输入上再跑一遍。
 - **结果**照 Signature 的 out：结束值交回调用方，其中的目录字段是候选，见「结果与采用」。
 - **接线**：它的 Required port 按名字从 root entry 手里取；root entry 没有的，宿主在实例化之前就拒绝。
 
-所以一个 Definition 的 Interface 就是它作为工具的说明：命令行、别的 Agent 框架把 App 当工具调用时看到的，与手的工具表里看到的，按同一条推出，见 ../Library/Runtime.md「工具」。在本机由一个调用方驱动时，那个调用方就是这次运行的根；经 MCP 一类协议接入的绑定见 Plan.md「以后的方向」的「生态入口」。
+### 从另一个程序调用
+
+`croon-app describe --source 源码文件` 给出完整 Interface，包括 Required port 和 Signature。注册给模型时，调用方加 `--tool 注册名` 取得 `model.generate` 使用的工具说明。要工作区的 Agent 还要给 `--snapshot 目录`。查询只用这项绑定推导模型要填的参数，目录在 `exec` 时才导入。两条命令使用同一份内置 Library 和同一个 Lang0 推导入口。
+
+工具参数取自 Signature 的输入 Schema。调用方已绑定的顶层字段从 `properties` 与 `required` 中去除，其余内容原样保留。W0 通过 `definition.infer` 在推导草稿时提供 `bound_inputs` 取得这份 `tool_input`，同时得到构造用的完整 Interface。CLI 用同一规则处理 `--snapshot`。Port 接线由实例化的一方提供。目录的采用由接收方决定，见「结果与采用」。
+
+宿主的 `Finished` 交付完整结束值与物化的目录 Bundle ID。命令行在给人显示结果时才取字符串 `summary`。程序用 `exec --json` 读取完整结束值，给 `--snapshot` 传注册时选定的输入目录，有目录产物时从自己指定的 `--out` 取得文件。进度和诊断走 stderr。调用方先看退出码，只有 0 才把整个 stdout 作为 JSON 解析。
+
+工具说明的语义见 ../Library/Runtime.md「工具」。在本机由一个调用方驱动时，那个调用方就是这次运行的根。
 
 ## 结果与采用
 
@@ -115,7 +123,7 @@ sessions/<名字>/
 
 ### 进度
 
-`run`、`resume`、`exec` 在标准错误上每步打印一行：模型第几次调用、累计用了多少 token、W0 要调用哪个工具、在容器里运行的命令（文本，取第一行、截到 100 字）与它的结果。文件工具写成 `sh -c 'cat > "$1"' sh 路径` 的，一并显示 `$1` 是哪个文件。`--quiet` 关掉。标准输出只有最后的结果：`run` 与 `resume` 是总结与结果路径，`exec` 是被运行源码的结束值（如 `42`）；所以脚本里 `> 文件` 拿到的还是干净的结果。
+`run`、`resume`、`exec` 在标准错误上每步打印一行：模型第几次调用、累计用了多少 token、W0 要调用哪个工具、在容器里运行的命令（文本，取第一行、截到 100 字）与它的结果。文件工具写成 `sh -c 'cat > "$1"' sh 路径` 的，一并显示 `$1` 是哪个文件。`--quiet` 关掉。默认的 stdout 给人阅读。结束值带字符串 `summary` 时打印这段总结，其余情况打印 JSON，有目录产物时再打印结果路径。程序调用的输出见「从另一个程序调用」。
 
 进度来自 Journal：宿主在等结束的间隙读新增的记录，命令文本从内容库按 ID 取，不为它在 Library 里加东西。接着做一个没做完的会话时，`resume` 先静默读完已有的记录，只打印之后新发生的，开头一行说明「接着上次做：已经有几次模型调用、累计多少 token、几步」，计时也从这里重新开始，历史的耗时不是这一次的；不然已经做完的步骤会被当成新的再演一遍，看起来像重做。已经结束的会话再 `resume`，没有要等的东西，不打印进度，直接给出结果。
 

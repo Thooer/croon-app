@@ -6,6 +6,8 @@ mod support;
 
 use serde_json::json;
 use std::fs;
+use std::path::Path;
+use std::process::Command;
 use support::Temp;
 
 const PURE: &str = "def main(numbers: list[int]) -> int:\n    return sum([n for n in numbers if n % 2 == 0])\n";
@@ -24,6 +26,70 @@ def main(snapshot: str, exec: Exec) -> Out:
     advance(ws, exec, ["sh", "-c", "echo hello > made.txt"])
     return croon.deliver({"summary": "写好了", "snapshot": ws["current"]}, [ws["current"]])
 "#;
+
+#[test]
+fn describe_reads_library_imports_and_cleans_up_after_success_and_failure() {
+    let temp = Temp::new();
+    let scratch = temp.root.join("tmp");
+    fs::create_dir(&scratch).unwrap();
+    let source = temp.root.join("agent.py");
+    let state = temp.root.join("state");
+    let query = |extra: &[&str]| {
+        Command::new(env!("CARGO_BIN_EXE_croon-app"))
+            .args(["describe", "--source"])
+            .arg(&source)
+            .args(extra)
+            .env("PATH", "")
+            .env("TMPDIR", &scratch)
+            .env("XDG_CONFIG_HOME", temp.root.join("config"))
+            .env("XDG_STATE_HOME", &state)
+            .output()
+            .unwrap()
+    };
+
+    fs::write(&source, FILES).unwrap();
+    let ok = query(&[]);
+    assert!(ok.status.success(), "{}", String::from_utf8_lossy(&ok.stderr));
+    let interface: serde_json::Value = serde_json::from_slice(&ok.stdout).unwrap();
+    assert_eq!(interface["description"], "往目录里写一个文件。");
+    assert_eq!(interface["signature"]["in"]["required"], json!(["snapshot"]));
+    assert!(interface["requires"].get("exec").is_some());
+
+    let fix_add = include_str!("../../../spike/external-tool/fix_add_agent.py");
+    fs::write(&source, fix_add).unwrap();
+    let missing = query(&["--tool", "repair"]);
+    assert!(!missing.status.success() && missing.stdout.is_empty());
+    assert!(String::from_utf8_lossy(&missing.stderr).contains("--snapshot"));
+    let repo = temp.root.join("future-input");
+    let bound = query(&["--tool", "repair", "--snapshot", repo.to_str().unwrap()]);
+    assert!(bound.status.success(), "{}", String::from_utf8_lossy(&bound.stderr));
+    let tool: serde_json::Value = serde_json::from_slice(&bound.stdout).unwrap();
+    assert_eq!(tool["name"], "repair");
+    assert_eq!(tool["input"]["properties"], json!({"task": {"type": "string"}}));
+    assert_eq!(tool["input"]["required"], json!(["task"]));
+    assert_eq!(tool["input"]["additionalProperties"], false);
+    assert!(!repo.exists());
+
+    fs::write(&source, "def main(x) -> int:\n    return x\n").unwrap();
+    let bad = query(&[]);
+    assert!(!bad.status.success());
+    assert!(bad.stdout.is_empty() && !bad.stderr.is_empty());
+    assert!(!state.exists());
+    assert_eq!(fs::read_dir(scratch).unwrap().count(), 0);
+}
+
+#[test]
+#[ignore = "requires local Docker with croon-work:2 and python:3.12-slim"]
+fn the_external_python_caller_can_register_invoke_and_reject_bad_input() {
+    let script = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../spike/external-tool/call.py");
+    let result = Command::new("python3")
+        .arg("-B")
+        .arg(script)
+        .arg(env!("CARGO_BIN_EXE_croon-app"))
+        .output()
+        .unwrap();
+    assert!(result.status.success(), "{}", String::from_utf8_lossy(&result.stderr));
+}
 
 #[test]
 #[ignore = "requires local Docker with croon-work:2 and python:3.12-slim"]
@@ -45,26 +111,54 @@ fn a_source_runs_on_its_own_signature_with_or_without_a_directory() {
         &out,
     )
     .unwrap();
-    assert_eq!(done.summary, "16");
+    assert_eq!(done.value, json!(16));
     assert!(done.snapshot.is_empty());
     assert!(!out.exists(), "没有目录产物就不建结果目录");
 
     // 同一个 Kernel 目录续做，得到同样的结果：任务与输入取自 Journal。
     let again = host::resume(&settings, host::Assembly::default(), &out).unwrap();
-    assert_eq!(again.summary, "16");
+    assert_eq!(again.value, done.value);
 
     // 要目录、交回目录：由调用方指定的目录填进输入，结果物化出来。
     let system = temp.system("exec-files");
-    let settings = host::Settings::load(&temp.config(&system, &unused)).unwrap();
+    let config = temp.config(&system, &unused);
+    let source = temp.root.join("agent.py");
+    fs::write(&source, FILES).unwrap();
     let repo = temp.root.join("repo");
     fs::create_dir(&repo).unwrap();
     fs::write(repo.join("a.txt"), "a\n").unwrap();
     let out = temp.root.join("out-files");
-    let done = host::exec(&settings, host::Assembly::default(), FILES, json!({}), Some(&repo), &out).unwrap();
-    assert_eq!(done.summary, "写好了");
+    let output = Command::new(env!("CARGO_BIN_EXE_croon-app"))
+        .args(["exec", "--json", "--input", "{}", "--source"])
+        .arg(source)
+        .arg("--config")
+        .arg(&config)
+        .arg("--snapshot")
+        .arg(&repo)
+        .arg("--out")
+        .arg(&out)
+        .output()
+        .unwrap();
+    assert!(output.status.success(), "{}", String::from_utf8_lossy(&output.stderr));
+    let value: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+    assert_eq!(value["summary"], "写好了");
+    assert!(value["snapshot"].as_str().unwrap().starts_with("sha256:"));
     assert_eq!(fs::read_to_string(out.join("made.txt")).unwrap(), "hello\n");
     assert_eq!(fs::read_to_string(out.join("a.txt")).unwrap(), "a\n");
     assert!(!repo.join("made.txt").exists(), "调用方的目录不动");
+
+    // 同一结束值在人读模式下显示摘要和路径。
+    let reread = temp.root.join("human-out");
+    let human = Command::new(env!("CARGO_BIN_EXE_croon-app"))
+        .args(["resume", "--config"])
+        .arg(&config)
+        .arg("--out")
+        .arg(&reread)
+        .output()
+        .unwrap();
+    assert!(human.status.success(), "{}", String::from_utf8_lossy(&human.stderr));
+    let id = value["snapshot"].as_str().unwrap();
+    assert_eq!(String::from_utf8(human.stdout).unwrap(), format!("写好了\n结果：{}（{id}）\n", reread.display()));
 
     // 要目录却没给：当场说清。
     let system = temp.system("exec-missing");
@@ -98,7 +192,7 @@ fn exec_works_without_any_model_and_a_source_that_asks_one_fails_with_a_clear_re
 
     // 纯计算：没有配置、没有模型，照样跑。
     let done = host::exec(&settings, assembly("pure"), PURE, json!({"numbers": [1, 2, 3, 4]}), None, &temp.root.join("o1")).unwrap();
-    assert_eq!(done.summary, "6");
+    assert_eq!(done.value, json!(6));
 
     // 要问模型的：那一次调用以 use 失败结束，说明没有配置模型，而不是一个看不懂的宿主故障。
     let error = host::exec(&settings, assembly("asks"), ASKING, json!({"topic": "咖啡"}), None, &temp.root.join("o2"))

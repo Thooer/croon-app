@@ -106,7 +106,7 @@ fn different_shapes_run_and_a_wiring_mistake_comes_back_readable() {
     };
     let out = temp.root.join("out");
     let done = host::run(&settings, assembly, &repo, "试几种主体", &out).unwrap();
-    assert_eq!(done.summary, "都试过了");
+    assert_eq!(done.value["summary"], "都试过了");
     assert_eq!(fs::read_to_string(out.join("a.py")).unwrap(), "x\n");
 
     let seen = seen.borrow();

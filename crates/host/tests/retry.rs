@@ -81,7 +81,7 @@ fn a_transient_failure_is_retried_and_each_try_is_its_own_action() {
     // 503、429、超时（status 为空）各一次，再成功：共 4 次模型调用。
     let (done, asked) = run_with(vec![fail(json!(503)), fail(json!(429)), fail(Json::Null)]);
     let done = done.unwrap_or_else(|e| panic!("偶发失败应当被重试掉：{e}"));
-    assert_eq!(done.summary, "好了");
+    assert_eq!(done.value["summary"], "好了");
     assert_eq!(asked, 4);
 }
 
